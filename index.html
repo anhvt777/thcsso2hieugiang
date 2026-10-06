@@ -78,7 +78,7 @@
         <div class="toolbar"><div class="search-box"><span>⌕</span><input id="studentSearch" type="search" placeholder="Tìm theo tên, mã học sinh, Mã số CĐ, lớp..."></div><div class="toolbar-right"><span id="studentCountLabel">0 học sinh</span><button class="button button-outline" id="exportStudents">↓ Xuất danh sách</button></div></div>
         <div class="student-warning-panel" id="studentWarningPanel" hidden><div><strong id="studentWarningTitle">Có hồ sơ cần bổ sung</strong><p id="studentWarningText"></p></div><button class="button button-outline button-small" id="showIncompleteStudents">Xem hồ sơ cần bổ sung</button></div>
         <article class="panel table-panel"><div class="table-wrap"><table class="student-master-table"><thead><tr><th>MÃ HỌC SINH</th><th>HỌ VÀ TÊN</th><th>LỚP</th><th>NGÀY SINH</th><th>PHỤ HUYNH / ĐIỆN THOẠI</th><th>MÓN PHẢI THU</th><th>PHẢI THU</th><th>ĐÃ THU</th><th>CÒN LẠI</th><th></th></tr></thead><tbody id="studentsTable"><tr><td colspan="10" class="empty-cell">Chưa có học sinh. Hãy tải file danh sách gốc của trường.</td></tr></tbody></table></div></article>
-        <p class="table-note">Web tự nhận diện mẫu THCS Số 2 Hiếu Giang. Nếu file chưa có mã học sinh nội bộ, web tự cấp mã HG2-00001, HG2-00002… và giữ ổn định ở các lần nhập sau. Các cột BHYT/BHTT trong file được đọc trực tiếp thành khoản phải thu.</p>
+        <p class="table-note">Web tự nhận diện mẫu THCS Số 2 Hiếu Giang. Web giữ một mã gốc ổn định HG2-00001… để lưu lịch sử và tạo thêm mã theo lớp dạng HG2-7C2-01, HG2-7C2-02… để lập báo cáo, QR và tách lớp/khoản thu thuận tiện. Các cột BHYT/BHTT trong file được đọc trực tiếp thành khoản phải thu.</p>
       </section>
 
       <section class="page" id="page-fee-setup">
@@ -100,7 +100,7 @@
               <select id="feeTargets" multiple size="7" aria-label="Chọn đối tượng phân giao"></select>
               <small>Giữ Ctrl/Cmd để chọn nhiều khối, lớp hoặc học sinh. Với “Toàn trường” không cần chọn.</small>
             </div>
-            <div class="fee-code-preview"><span>Mẫu mã khách hàng</span><strong id="feeCodePreview">HG2 + Mã học sinh + Mã khoản</strong><small id="feeCodePreviewExample">Ví dụ sẽ hiển thị sau khi có danh sách học sinh.</small></div>
+            <div class="fee-code-preview"><span>Mẫu mã khách hàng</span><strong id="feeCodePreview">Mã HS theo lớp + Mã khoản</strong><small id="feeCodePreviewExample">Ví dụ sẽ hiển thị sau khi có danh sách học sinh.</small></div>
             <div class="fee-builder-actions"><button class="button button-outline" id="cancelFeeEdit" hidden>Hủy</button><button class="button button-primary" id="saveFeeAssignment">Tạo & phân giao</button></div>
           </article>
           <article class="panel fee-catalog-panel">
