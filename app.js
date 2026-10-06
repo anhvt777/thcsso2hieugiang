@@ -1273,7 +1273,7 @@ async function getFeeCatalog(){const rec=await request('meta','get','feeCatalog'
 function feeSafeCode(value,max=24){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,max);}
 function buildPaymentCode(prefix,studentCode,feeCode){
   const a=feeSafeCode(prefix,6),b=feeSafeCode(studentCode,14),d=feeSafeCode(feeCode,8);
-  return (a+b+d).slice(0,25);
+  return `${b.startsWith(a)?b:a+b}${d}`.slice(0,25);
 }
 function selectedValues(select){return [...select.selectedOptions].map(o=>o.value);}
 function gradeOf(className){const m=String(className||'').trim().match(/^(\d{1,2})/);return m?m[1]:'';}
