@@ -1,0 +1,12 @@
+{
+  "name": "THCS Số 2 Hiếu Giang · Quản lý thu học sinh",
+  "short_name": "THCS Số 2 Hiếu Giang",
+  "description": "Theo dõi tiến độ và đối soát từng khoản thu học sinh trên thiết bị đang sử dụng.",
+  "lang": "vi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f7f6",
+  "theme_color": "#063f3b",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
