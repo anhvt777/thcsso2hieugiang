@@ -226,7 +226,7 @@ function openImportModal(kind, file, rows) {
   const fields = kind === 'students'
     ? longFormat
       ? `<div class="mapping-grid">${fieldSelect('map-code','Mã học sinh',headers,'code',true)}${fieldSelect('map-payment-code','Mã HS theo khoản nộp',headers,'paymentCode',true)}${fieldSelect('map-name','Họ và tên',headers,'name',true)}${fieldSelect('map-class','Lớp',headers,'className',true)}${fieldSelect('map-fee-category','Khoản nộp (BHYT/BHTT)',headers,'studentFeeCategory',true)}${fieldSelect('map-fee-amount','Số tiền phải thu',headers,'studentFeeAmount',true)}</div><p class="mapping-intro">Mỗi học sinh có một dòng BHYT và một dòng BHTT. Web tự ghép hai dòng theo mã học sinh và giữ mã từng khoản để đối soát với cột “Mã khách hàng” của ngân hàng.</p>`
-      : `<div class="mapping-grid">${fieldSelect('map-code','Mã học sinh nội bộ (nếu file đã có)',headers,'code')}${fieldSelect('map-external-code','Mã số CĐ / mã ngoài (nếu có)',headers,'externalCode')}${fieldSelect('map-name','Họ và tên',headers,'name',true)}${fieldSelect('map-class','Lớp',headers,'className',true)}${fieldSelect('map-gender','Giới tính',headers,'gender')}${fieldSelect('map-birth-date','Ngày sinh',headers,'birthDate')}${fieldSelect('map-student-type','Phân loại HS',headers,'studentType')}${fieldSelect('map-registration-info','Đăng ký khoản khác (nếu có)',headers,'registrationInfo')}${fieldSelect('map-due-insurance','Bảo hiểm y tế (BHYT)',headers,'dueInsurance')}${fieldSelect('map-due-mandatory','Bảo hiểm thân thể (BHTT)',headers,'dueMandatory')}${fieldSelect('map-note','Ghi chú',headers,'note')}${fieldSelect('map-personal-id','SĐD cá nhân / CCCD khác (nếu có)',headers,'personalId')}${fieldSelect('map-phone','Điện thoại (nếu có)',headers,'phone')}</div><p class="mapping-intro"><strong>Mẫu THCS Số 2 Hiếu Giang:</strong> chỉ cần Họ tên và Lớp. Web tự nhận “Tên lớp học”, “Mã số CĐ”, Giới tính, Ngày sinh, Phân loại HS, BHYT, BHTT và Ghi chú. Nếu file không có mã học sinh nội bộ, web tự cấp mã dạng <strong>HG2-00001</strong> và giữ nguyên mã đó ở các lần nhập sau.</p>`
+      : `<div class="mapping-grid">${fieldSelect('map-code','Mã học sinh nội bộ (nếu file đã có)',headers,'code')}${fieldSelect('map-external-code','Mã số CĐ / mã ngoài (nếu có)',headers,'externalCode')}${fieldSelect('map-name','Họ và tên',headers,'name',true)}${fieldSelect('map-class','Lớp',headers,'className',true)}${fieldSelect('map-gender','Giới tính',headers,'gender')}${fieldSelect('map-birth-date','Ngày sinh',headers,'birthDate')}${fieldSelect('map-student-type','Phân loại HS',headers,'studentType')}${fieldSelect('map-registration-info','Đăng ký khoản khác (nếu có)',headers,'registrationInfo')}${fieldSelect('map-due-insurance','Bảo hiểm y tế (BHYT)',headers,'dueInsurance')}${fieldSelect('map-due-mandatory','Bảo hiểm thân thể (BHTT)',headers,'dueMandatory')}${fieldSelect('map-note','Ghi chú',headers,'note')}</div><p class="mapping-intro"><strong>Mẫu THCS Số 2 Hiếu Giang:</strong> web chỉ nhận các trường thực tế có trong file trường: Mã số CĐ, Họ tên, Lớp, Giới tính, Ngày sinh, Phân loại HS, Đăng ký, BHYT, BHTT và Ghi chú. Không tự suy đoán phụ huynh, điện thoại, CCCD hoặc dữ liệu khác.</p>`
     : `<div class="mapping-grid">${fieldSelect('map-amount','Số tiền hóa đơn / giao dịch',headers,'amount',true)}${fieldSelect('map-report-moet','Mã học sinh / mã ngoài',headers,'reportMoet')}${fieldSelect('map-report-payment','Mã khách hàng / TK định danh',headers,'reportPaymentCode')}${fieldSelect('map-report-name','Tên khách hàng',headers,'reportCustomerName')}${fieldSelect('map-report-class','Lớp / địa chỉ',headers,'reportClass')}${fieldSelect('map-report-personal','SĐD cá nhân',headers,'reportPersonalId')}${fieldSelect('map-service-2','Dịch vụ cấp 2 / khoản thu',headers,'serviceLevel2')}${fieldSelect('map-content','Nội dung thanh toán',headers,'content')}${fieldSelect('map-txn','Số tham chiếu / mã giao dịch',headers,'txnId')}${fieldSelect('map-invoice','Mã hóa đơn',headers,'invoiceId')}${fieldSelect('map-date','Ngày thanh toán',headers,'date')}${fieldSelect('map-bank-status','Trạng thái giao dịch',headers,'bankStatus')}</div><p class="mapping-intro"><strong>Mẫu BIDV Hiếu Giang:</strong> web ưu tiên “Thông tin bổ sung 2” để ghép mã học sinh, dùng “Dịch vụ cấp 2”/nội dung để xác định khoản thu và “Số tham chiếu” làm mã giao dịch. “Mã khách hàng” được lưu riêng để tra cứu, không bắt buộc phải trùng mã học sinh.</p>`;
   $('#modalBody').innerHTML = `${summary}${fields}${previewHtml(headers, rows)}`;
   $('#modalConfirm').textContent = kind === 'students' ? 'Nhập danh sách' : 'Nhập & đối soát';
@@ -307,11 +307,8 @@ function studentFeesFromRow(row, map) {
 function studentIdentity(s){
   const external=slug(String(s?.externalCode||'').replace(/\s+/g,''));
   if(external)return `ext|${external}`;
-  const pid=String(s?.personalId||'').replace(/\s/g,'');
-  if(pid)return `pid|${pid}`;
-  const name=slug(s?.name||''),birth=String(s?.birthDate||''),gender=slug(s?.gender||''),phone=String(s?.phone||'').replace(/\D/g,'');
+  const name=slug(s?.name||''),birth=String(s?.birthDate||''),gender=slug(s?.gender||'');
   if(name&&birth)return `nb|${name}|${birth}|${gender}`;
-  if(name&&phone)return `np|${name}|${phone}`;
   return '';
 }
 function uniqueStudentIndex(items,keyFn){
@@ -686,7 +683,7 @@ function createStudentCodeAllocator(existingList){
 function studentWarnings(s,conflicts=[]){
   const out=[];if(!s.name||/^Chưa cập nhật/.test(s.name))out.push('Thiếu họ tên');if(!s.className||s.className==='Chưa xếp lớp')out.push('Thiếu lớp');
   if(conflicts.length)out.push('Thông tin trùng/chưa thống nhất');
-  return [...new Set([...(s.dataWarnings||[]),...out])];
+  return [...new Set(out)];
 }
 function studentsFromFeeRows(dataRows,map,now) {
   const grouped=new Map(),paymentOwners=new Map();
@@ -740,19 +737,14 @@ async function confirmImport() {
           let code=cell(row,map,'code'),name=cell(row,map,'name'),className=cell(row,map,'className');
           const profile={
             externalCode:cell(row,map,'externalCode'),
-            personalId:cell(row,map,'personalId'),
             gender:cell(row,map,'gender'),
             birthDate:normalizeDate(cell(row,map,'birthDate')),
             studentType:cell(row,map,'studentType'),
             registrationInfo:cell(row,map,'registrationInfo'),
-            note:cell(row,map,'note'),
-            ethnicity:cell(row,map,'ethnicity'),
-            fatherName:cell(row,map,'fatherName'),
-            motherName:cell(row,map,'motherName'),
-            phone:cell(row,map,'phone')
+            note:cell(row,map,'note')
           };
           if(!code&&!name&&!className&&!Object.values(profile).some(Boolean))return;
-          const identity=studentIdentity({name,birthDate:profile.birthDate,gender:profile.gender,phone:profile.phone,personalId:profile.personalId,externalCode:profile.externalCode});
+          const identity=studentIdentity({name,birthDate:profile.birthDate,gender:profile.gender,externalCode:profile.externalCode});
           const externalKey=slug(String(profile.externalCode||'').replace(/\s+/g,''));
           let old=code?existing.get(slug(code)):null;
           if(!old&&externalKey)old=byExternal.get(externalKey)||null;
@@ -779,16 +771,12 @@ async function confirmImport() {
             name:choose(name,prior.name),
             className:effectiveClass,
             externalCode:choose(profile.externalCode,prior.externalCode),
-            personalId:choose(profile.personalId,prior.personalId),
             gender:choose(profile.gender,prior.gender),
             birthDate:choose(profile.birthDate,prior.birthDate),
             studentType:choose(profile.studentType,prior.studentType),
             registrationInfo:choose(profile.registrationInfo,prior.registrationInfo),
             note:choose(profile.note,prior.note),
-            ethnicity:choose(profile.ethnicity,prior.ethnicity),
-            fatherName:choose(profile.fatherName,prior.fatherName),
-            motherName:choose(profile.motherName,prior.motherName),
-            phone:choose(profile.phone,prior.phone),
+            personalId:'',ethnicity:'',fatherName:'',motherName:'',phone:'',
             due:feeMapped?fees.due:(num(prior.due)||0),
             dueItems:feeMapped?fees.dueItems:(Array.isArray(prior.dueItems)?prior.dueItems:[]),
             dueByCategory:feeMapped?fees.dueByCategory:(prior.dueByCategory||{insurance:0,mandatory:0,service:0,other:0}),
@@ -1097,11 +1085,10 @@ function renderStudents(students, transactions) {
   $('#studentsTable').innerHTML = filtered.length ? filtered.map(s => {
     const items=studentDueItems(s);const due=items.reduce((sum,x)=>sum+x.amount,0);
     const paid=items.filter(item=>paidByItem.has(`${s.code}|${item.id}`)).reduce((sum,x)=>sum+x.amount,0);
-    const parent=[s.fatherName,s.motherName].filter(Boolean).join(' / ');
-    const contact=[parent,s.phone].filter(Boolean).join(' · ');
+    const sourceNote=[s.studentType,s.registrationInfo,s.note].filter(Boolean).join(' · ');
     const warnings=studentWarnings(s);const warn=warnings.length?`<span class="student-warning-badge" title="${escapeHTML(warnings.join(' · '))}">⚠ ${warnings.length}</span>`:'';
-    return `<tr class="student-master-row ${warnings.length?'has-warning':''}" data-student-code="${escapeHTML(s.code)}"><td><strong>${escapeHTML(s.classStudentCode||s.code)}</strong><small class="muted-code">${escapeHTML(s.code)}</small> ${warn}</td><td><strong>${escapeHTML(s.name)}</strong></td><td>${escapeHTML(s.className || '—')}</td><td>${escapeHTML(s.birthDate||'—')}</td><td class="student-contact-cell">${escapeHTML(contact||'—')}</td><td>${items.length}</td><td>${money(due)}</td><td>${money(paid)}</td><td class="remain-cell"><strong>${money(Math.max(0,due-paid))}</strong></td><td><button class="text-button student-detail-button" data-student-code="${escapeHTML(s.code)}">Chi tiết ›</button></td></tr>`;
-  }).join('') : `<tr><td colspan="10" class="empty-cell">${students.length ? 'Không tìm thấy học sinh phù hợp.' : 'Chưa có học sinh. Hãy tải file danh sách gốc của trường.'}</td></tr>`;
+    return `<tr class="student-master-row ${warnings.length?'has-warning':''}" data-student-code="${escapeHTML(s.code)}"><td><strong>${escapeHTML(s.classStudentCode||s.code)}</strong> ${warn}</td><td><strong>${escapeHTML(s.name)}</strong></td><td>${escapeHTML(s.className || '—')}</td><td>${escapeHTML(s.gender||'—')}</td><td>${escapeHTML(s.birthDate||'—')}</td><td>${escapeHTML(sourceNote||'—')}</td><td>${items.length}</td><td>${money(due)}</td><td>${money(paid)}</td><td class="remain-cell"><strong>${money(Math.max(0,due-paid))}</strong></td><td><button class="text-button student-detail-button" data-student-code="${escapeHTML(s.code)}">Chi tiết ›</button></td></tr>`;
+  }).join('') : `<tr><td colspan="11" class="empty-cell">${students.length ? 'Không tìm thấy học sinh phù hợp.' : 'Chưa có học sinh. Hãy tải file danh sách gốc của trường.'}</td></tr>`;
 }
 function itemMatchesFeeFilter(item,filter){
   if(filter==='all')return true;
@@ -1358,7 +1345,7 @@ async function deleteFee(id){
 async function openStudentProfile(code){
   const [students,stored]=await Promise.all([all('students'),all('transactions')]);const s=students.find(x=>x.code===code);if(!s)return;const tx=reconcileTransactions(students,stored);const paid=new Set(tx.filter(t=>t.paymentStatus==='valid'&&t.studentCode===code).flatMap(transactionMatchedItemIds));
   $('#studentProfileTitle').textContent=`${s.name} · ${s.className}`;$('#studentProfileSubtitle').textContent=`Mã theo lớp: ${s.classStudentCode||'—'} · Mã gốc: ${s.code}`;
-  const info=[['Mã số CĐ / mã ngoài',s.externalCode],['Giới tính',s.gender],['Ngày sinh',s.birthDate],['Phân loại HS',s.studentType],['Đăng ký khoản khác',s.registrationInfo],['Ghi chú',s.note],['SĐD cá nhân',s.personalId],['Điện thoại',s.phone]].filter(x=>x[1]);
+  const info=[['Mã số CĐ / mã ngoài',s.externalCode],['Giới tính',s.gender],['Ngày sinh',s.birthDate],['Phân loại HS',s.studentType],['Đăng ký khoản khác',s.registrationInfo],['Ghi chú',s.note]].filter(x=>x[1]);
   $('#studentProfileInfo').innerHTML=info.map(([k,v])=>`<div><span>${k}</span><strong>${escapeHTML(v)}</strong></div>`).join('')||'<div class="empty-inline">Chưa có thông tin hồ sơ bổ sung.</div>';
   const items=studentDueItems(s);$('#studentProfileFees').innerHTML=items.length?items.map(item=>`<div class="student-profile-fee ${paid.has(item.id)?'paid':''}"><div><strong>${escapeHTML(item.name)}</strong><small>${escapeHTML(item.paymentCode||'Chưa có mã thanh toán')}</small></div><b>${money(item.amount)}</b><span>${paid.has(item.id)?'Đã thu':'Chưa thu'}</span></div>`).join(''):'<div class="empty-inline">Học sinh chưa được phân giao khoản thu.</div>';
   $('#studentProfileBackdrop').classList.add('open');
@@ -1840,6 +1827,35 @@ function exportStudents() {
     download('danh-sach-hoc-sinh-thcs-so-2-hieu-giang.csv','\uFEFF'+headers.join(',')+'\r\n'+lines.join('\r\n'),'text/csv;charset=utf-8');
   });
 }
+async function migrateSchool2StudentData(){
+  const students=await all('students');
+  if(!students.length)return;
+  const stable=students.filter(s=>!String(s.code||'').startsWith('TMP-'));
+  const codeAllocator=createStudentCodeAllocator(stable);
+  const classAllocator=createClassStudentCodeAllocator(students);
+  const remap=new Map(),updated=[],deleteCodes=[];
+  for(const s of students){
+    let code=s.code;
+    if(String(code||'').startsWith('TMP-')){const old=code;code=codeAllocator.next();remap.set(old,code);deleteCodes.push(old);}
+    let classStudentCode=s.classStudentCode;
+    if(!classAllocator.validForClass(classStudentCode,s.className))classStudentCode=classAllocator.next(s.className||'Chưa xếp lớp');
+    const clean={
+      ...s,code,classStudentCode,
+      personalId:'',ethnicity:'',fatherName:'',motherName:'',phone:'',
+      dataWarnings:studentWarnings({...s,code,classStudentCode,dataWarnings:[]})
+    };
+    updated.push(clean);
+  }
+  for(const old of deleteCodes)await request('students','delete',old);
+  await putMany('students',updated);
+  if(remap.size){
+    const txs=await all('transactions');
+    await putMany('transactions',txs.map(t=>remap.has(t.studentCode)?{...t,studentCode:remap.get(t.studentCode)}:t));
+    const receipts=await all('receipts');
+    await putMany('receipts',receipts.map(r=>remap.has(r.studentCode)?{...r,studentCode:remap.get(r.studentCode)}:r));
+  }
+}
+
 function wire() {
   $$('.nav-item[data-page]').forEach(btn=>btn.addEventListener('click',()=>setPage(btn.dataset.page)));
   $$('[data-go]').forEach(btn=>btn.addEventListener('click',()=>setPage(btn.dataset.go)));
@@ -1884,6 +1900,6 @@ function wire() {
 }
 document.addEventListener('DOMContentLoaded',async()=>{
   if(!$('#storageStatus'))return; // Standalone visual tests do not open the production database.
-  try { db=await openDatabase();wire();await refresh(); }
+  try { db=await openDatabase();await migrateSchool2StudentData();wire();await refresh(); }
   catch(error){console.error(error);$('#storageStatus').textContent='Không mở được kho dữ liệu';toast('Trình duyệt không cho phép lưu dữ liệu cục bộ.',true);}
 });
