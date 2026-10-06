@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#063f3b">
+  <meta name="description" content="Quản lý và đối soát từng khoản thu học sinh. Dữ liệu được lưu cục bộ trên thiết bị đang sử dụng.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; worker-src 'self'; manifest-src 'self'; form-action 'self'">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <title>Trường THCS Số 2 Hiếu Giang · Quản lý thu học sinh</title>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">▧</div>
+        <div><strong>SchoolCollect</strong><small>Quản lý thu học sinh</small></div>
+      </div>
+      <div class="local-pill"><span class="shield-icon" aria-hidden="true">✓</span><div><strong>Lưu trên máy</strong><small>Không gửi dữ liệu học sinh lên máy chủ</small></div></div>
+      <nav class="nav" aria-label="Điều hướng chính">
+        <button class="nav-item active" data-page="dashboard"><span class="nav-icon">▦</span>Tổng quan</button>
+        <button class="nav-item" data-page="students"><span class="nav-icon">♧</span>Học sinh</button>
+        <button class="nav-item" data-page="fees"><span class="nav-icon">▤</span>Khoản thu</button>
+        <button class="nav-item" data-page="fee-setup"><span class="nav-icon">＋</span>Thiết lập khoản thu</button>
+        <button class="nav-item" data-page="receipts"><span class="nav-icon">▣</span>Phiếu thu / Xác nhận</button>
+        <a class="nav-item qr-external-link" href="https://anhvt777.github.io/bidvqrgen/" target="_blank" rel="noopener noreferrer" aria-label="Mở công cụ tạo QR và thông báo nộp tiền trong tab mới"><span class="nav-icon">▦</span>Tạo QR & thông báo <span class="external-link-mark" aria-hidden="true">↗</span></a>
+        <button class="nav-item" data-page="imports"><span class="nav-icon">⇧</span>Nhập dữ liệu</button>
+        <button class="nav-item" data-page="history"><span class="nav-icon">▣</span>Tra cứu & báo cáo</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="school-chip"><span class="school-symbol">⌂</span><div><strong>TRƯỜNG THCS SỐ 2 HIẾU GIANG</strong><small>Năm học 2026–2027</small></div></div>
+        <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span>Sao lưu & cài đặt</button>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <button class="mobile-menu" id="menuToggle" aria-label="Mở menu">☰</button>
+        <div><div class="page-title" id="topTitle">Tổng quan</div><div class="page-subtitle" id="topSubtitle">Theo dõi tiến độ thu theo thời gian thực trên thiết bị này</div></div>
+        <div class="top-actions"><span class="local-tag"><i></i>Dữ liệu cục bộ</span><button class="button button-outline backup-top" id="backupButtonTop"><span>▤</span> Sao lưu</button></div>
+      </header>
+
+      <section class="page active" id="page-dashboard">
+        <div class="notice notice-sample" id="dataNotice"><span class="sample-label">DỮ LIỆU TRÊN MÁY</span><strong id="dataNoticeText">Chọn danh sách học sinh và báo cáo thu để bắt đầu theo dõi.</strong><button class="button button-small button-outline" data-go="imports">Nhập dữ liệu</button></div>
+        <div class="stats-grid">
+          <article class="stat-card"><div class="stat-icon mint">♧</div><div><span class="stat-label">Học sinh</span><strong class="stat-value" id="statStudents">0</strong><small class="stat-hint" id="statClasses">Chưa có danh sách</small></div></article>
+          <article class="stat-card"><div class="stat-icon blue">▤</div><div><span class="stat-label">Món phải thu</span><strong class="stat-value" id="statFeeItems">0</strong><small class="stat-hint" id="statDueAmount">0 ₫ phải thu</small></div></article>
+          <article class="stat-card"><div class="stat-icon green">✓</div><div><span class="stat-label">Đã thu đủ</span><strong class="stat-value" id="statPaidItems">0</strong><small class="stat-hint" id="statPaidAmount">0 ₫ đã ghi nhận</small></div></article>
+          <article class="stat-card"><div class="stat-icon amber">◷</div><div><span class="stat-label">Chưa thu đủ</span><strong class="stat-value" id="statUnpaidItems">0</strong><small class="stat-hint" id="statRemainAmount">0 ₫ còn lại</small></div></article>
+          <article class="stat-card completion-card"><div class="completion-ring" id="completionRing"><div><strong id="completionPercent">0%</strong><small>Hoàn thành</small></div></div></article>
+        </div>
+
+        <div class="dashboard-grid">
+          <article class="panel fee-progress-panel">
+            <div class="panel-header"><div><h2>Tiến độ từng khoản</h2><p>Số món đã thu đủ trên tổng số món phải thu</p></div><button class="text-button" data-go="fees">Xem chi tiết <span>›</span></button></div>
+            <div class="fee-progress-list" id="feeProgressList"><div class="empty-inline">Nhập danh sách học sinh để xem tiến độ từng khoản thu.</div></div>
+          </article>
+          <article class="panel collection-speed-panel">
+            <div class="panel-header"><div><h2>Tốc độ thu</h2><p>Lũy kế số tiền theo ngày giao dịch</p></div><span class="mini-tag">VND</span></div>
+            <div class="speed-total"><strong id="chartTotal">0</strong><span>đã ghi nhận</span></div>
+            <div class="chart-wrap" id="collectionChart"><div class="chart-empty">Chưa có giao dịch để lập biểu đồ.</div></div>
+          </article>
+        </div>
+
+        <article class="panel table-panel class-summary-panel">
+          <div class="panel-header class-summary-header"><div><h2>Tổng hợp theo lớp</h2><p>So sánh số phải thu, đã thu và còn lại theo từng món thu</p></div><div class="class-summary-actions"><label for="classFeeFilter">Xem theo món thu</label><select id="classFeeFilter"><option value="all">Tất cả khoản thu</option><option value="mandatory">BH thân thể (BHTT)</option><option value="insurance">Bảo hiểm y tế (BHYT)</option><option value="service">Dịch vụ khác</option></select><button class="button button-outline button-small export-class-report" id="exportClassFeeReport">⇩ Xuất Excel</button><button class="text-button" data-go="students">Danh sách học sinh <span>›</span></button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>LỚP</th><th>SĨ SỐ</th><th>MÓN PHẢI THU</th><th>ĐÃ THU ĐỦ</th><th>CÒN PHẢI THU</th><th>TIẾN ĐỘ</th></tr></thead><tbody id="classTable"><tr><td colspan="6" class="empty-cell">Chưa có dữ liệu. Nhập danh sách học sinh để bắt đầu.</td></tr></tbody></table></div>
+        </article>
+        <div class="bottom-grid">
+          <article class="panel"><div class="panel-header"><div><h2>Giao dịch gần đây</h2><p>Các khoản thu được nhập gần nhất</p></div><button class="text-button" data-go="imports">Xem báo cáo <span>›</span></button></div><div class="recent-list" id="recentTransactions"><div class="empty-inline">Chưa có giao dịch được nhập.</div></div></article>
+          <article class="panel privacy-card"><div class="privacy-mark">✓</div><div><h2>Dữ liệu riêng theo thiết bị</h2><p>Danh sách học sinh và báo cáo thu chỉ lưu trong trình duyệt của máy này. Hai máy không tự đồng bộ với nhau.</p><button class="text-button" data-go="settings">Xem cách sao lưu <span>›</span></button></div></article>
+        </div>
+      </section>
+
+      <section class="page" id="page-students">
+        <div class="page-heading"><div><span class="eyebrow">DANH SÁCH GỐC</span><h1>Học sinh</h1><p>Quản lý hồ sơ học sinh và toàn bộ các khoản phải thu đã phân giao.</p></div><button class="button button-primary" id="studentImportButton">⇧ Tải file học sinh</button></div>
+        <div class="toolbar"><div class="search-box"><span>⌕</span><input id="studentSearch" type="search" placeholder="Tìm theo tên, Mã MOET, lớp hoặc số điện thoại..."></div><div class="toolbar-right"><span id="studentCountLabel">0 học sinh</span><button class="button button-outline" id="exportStudents">↓ Xuất danh sách</button></div></div>
+        <div class="student-warning-panel" id="studentWarningPanel" hidden><div><strong id="studentWarningTitle">Có hồ sơ cần bổ sung</strong><p id="studentWarningText"></p></div><button class="button button-outline button-small" id="showIncompleteStudents">Xem hồ sơ cần bổ sung</button></div>
+        <article class="panel table-panel"><div class="table-wrap"><table class="student-master-table"><thead><tr><th>MÃ MOET</th><th>HỌ VÀ TÊN</th><th>LỚP</th><th>NGÀY SINH</th><th>PHỤ HUYNH / ĐIỆN THOẠI</th><th>MÓN PHẢI THU</th><th>PHẢI THU</th><th>ĐÃ THU</th><th>CÒN LẠI</th><th></th></tr></thead><tbody id="studentsTable"><tr><td colspan="10" class="empty-cell">Chưa có học sinh. Hãy tải file danh sách gốc của trường.</td></tr></tbody></table></div></article>
+        <p class="table-note">Web tự nhận diện dòng tiêu đề trong file Excel, ưu tiên “Mã MOET” làm mã học sinh. Khoản thu được tạo và phân giao trực tiếp trên web, không cần chuẩn bị sẵn các dòng BHYT/BHTT trong file đầu vào.</p>
+      </section>
+
+      <section class="page" id="page-fee-setup">
+        <div class="page-heading"><div><span class="eyebrow">CẤU HÌNH THU</span><h1>Thiết lập khoản thu</h1><p>Tạo khoản thu một lần, sau đó phân giao cho toàn trường, theo khối, theo lớp hoặc từng học sinh.</p></div><button class="button button-outline" id="newFeeButton">＋ Khoản thu mới</button></div>
+        <div class="fee-setup-layout">
+          <article class="panel fee-builder">
+            <div class="panel-header"><div><h2 id="feeBuilderTitle">Tạo khoản thu</h2><p>Mã khoản và mã khách hàng sau khi phát hành nên được giữ ổn định để đối soát ngân hàng.</p></div><span class="mini-tag">Lưu cục bộ</span></div>
+            <input type="hidden" id="feeEditingId">
+            <div class="fee-form-grid">
+              <label class="qr-field"><span>Tên khoản thu</span><input id="feeName" maxlength="80" placeholder="Ví dụ: Bảo hiểm thân thể"></label>
+              <label class="qr-field"><span>Mã khoản</span><input id="feeCode" maxlength="12" placeholder="Ví dụ: BHTT"></label>
+              <label class="qr-field"><span>Số tiền / học sinh</span><input id="feeAmount" inputmode="numeric" placeholder="Ví dụ: 150000"></label>
+              <label class="qr-field"><span>Nhóm khoản</span><select id="feeCategory"><option value="service">Khoản thu / dịch vụ khác</option><option value="insurance">Bảo hiểm y tế (BHYT)</option><option value="mandatory">Bảo hiểm thân thể (BHTT)</option><option value="other">Khoản khác</option></select></label>
+              <label class="qr-field"><span>Tiền tố mã KH</span><input id="feePrefix" maxlength="8" value="HG" placeholder="HG"></label>
+              <label class="qr-field"><span>Phạm vi phân giao</span><select id="feeScope"><option value="all">Toàn trường</option><option value="grade">Theo khối</option><option value="class">Theo lớp</option><option value="student">Chọn học sinh</option></select></label>
+            </div>
+            <div class="fee-target-block">
+              <div class="fee-target-head"><strong>Đối tượng áp dụng</strong><span id="feeTargetSummary">Toàn bộ học sinh hiện có</span></div>
+              <select id="feeTargets" multiple size="7" aria-label="Chọn đối tượng phân giao"></select>
+              <small>Giữ Ctrl/Cmd để chọn nhiều khối, lớp hoặc học sinh. Với “Toàn trường” không cần chọn.</small>
+            </div>
+            <div class="fee-code-preview"><span>Mẫu mã khách hàng</span><strong id="feeCodePreview">HG + Mã MOET + Mã khoản</strong><small id="feeCodePreviewExample">Ví dụ sẽ hiển thị sau khi có danh sách học sinh.</small></div>
+            <div class="fee-builder-actions"><button class="button button-outline" id="cancelFeeEdit" hidden>Hủy</button><button class="button button-primary" id="saveFeeAssignment">Tạo & phân giao</button></div>
+          </article>
+          <article class="panel fee-catalog-panel">
+            <div class="panel-header"><div><h2>Danh mục khoản thu</h2><p>Các khoản đã tạo và số học sinh đang được phân giao.</p></div><span class="mini-tag" id="feeCatalogCount">0 khoản</span></div>
+            <div class="fee-catalog-list" id="feeCatalogList"><div class="empty-inline">Chưa có khoản thu. Tạo khoản đầu tiên ở biểu mẫu bên trái.</div></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="page" id="page-fees">
+        <div class="page-heading"><div><span class="eyebrow">CHI TIẾT THU</span><h1>Khoản thu</h1><p>Xem riêng BHYT, BHTT và các khoản dịch vụ khác.</p></div><button class="button button-primary" data-go="imports">⇧ Nhập báo cáo thu</button></div>
+        <div class="fee-detail-grid" id="feeCategoryCards"><div class="panel empty-state">Nhập danh sách học sinh và báo cáo thu để xem chi tiết.</div></div>
+        <article class="panel table-panel fee-breakdown-panel"><div class="panel-header"><div><h2>Chi tiết dịch vụ khác</h2><p>Tách theo nội dung thực tế như gửi xe, nước uống và dịch vụ khác.</p></div><span class="mini-tag" id="serviceTxnCount">0 giao dịch</span></div><div class="table-wrap"><table><thead><tr><th>NỘI DUNG THU</th><th>SỐ GIAO DỊCH</th><th>SỐ HỌC SINH</th><th>SỐ TIỀN ĐÃ THU</th></tr></thead><tbody id="serviceBreakdownTable"><tr><td colspan="4" class="empty-cell">Chưa có giao dịch dịch vụ.</td></tr></tbody></table></div></article>
+        <article class="panel table-panel"><div class="panel-header"><div><h2>Giao dịch theo khoản thu</h2><p>Danh sách chi tiết được nhập trên thiết bị này</p></div><div class="filter-pills"><span class="filter-pill">Tất cả <b id="allTxnCount">0</b></span><span class="filter-pill">Khớp <b id="matchedTxnCount">0</b></span><span class="filter-pill">Chưa khớp <b id="unmatchedTxnCount">0</b></span></div></div><div class="table-wrap"><table><thead><tr><th>NGÀY</th><th>MÃ GIAO DỊCH</th><th>KHOẢN THU</th><th>NỘI DUNG</th><th>MÃ HS / HỌC SINH</th><th>SỐ TIỀN</th><th>TRẠNG THÁI</th></tr></thead><tbody id="transactionsTable"><tr><td colspan="7" class="empty-cell">Chưa có báo cáo ngân hàng.</td></tr></tbody></table></div></article>
+      </section>
+
+      <section class="page" id="page-qr">
+        <div class="page-heading"><div><span class="eyebrow">THANH TOÁN THEO TỪNG MÓN</span><h1>Tạo mã QR</h1><p>Tạo QR cho từng khoản còn phải thu của học sinh, tiền chuyển trực tiếp vào tài khoản trường.</p></div></div>
+        <div class="qr-local-note"><span class="note-icon">✓</span><div><strong>Tạo và lưu ảnh ngay trên thiết bị này.</strong><p>Dữ liệu học sinh, số tiền và nội dung chuyển khoản không gửi tới dịch vụ tạo ảnh QR bên ngoài.</p></div></div>
+        <div class="qr-layout">
+          <article class="panel qr-config-card">
+            <div class="panel-header"><div><h2>Tài khoản nhận tiền của trường</h2><p>Thông tin được lưu riêng trong trình duyệt của máy này.</p></div><span class="category-badge">Lưu cục bộ</span></div>
+            <div class="qr-config-grid">
+              <label class="qr-field"><span>Mã BIN ngân hàng</span><input id="qrBankBin" inputmode="numeric" maxlength="6" placeholder="Ví dụ: 970418"></label>
+              <label class="qr-field"><span>Số tài khoản nhận</span><input id="qrAccountNumber" autocomplete="off" placeholder="Số tài khoản trường"></label>
+              <label class="qr-field qr-field-wide"><span>Tên chủ tài khoản</span><input id="qrAccountName" autocomplete="organization" maxlength="25" placeholder="Tên chủ tài khoản, tối đa 25 ký tự"></label>
+            </div>
+            <div class="qr-config-actions"><span id="qrConfigStatus">Chưa thiết lập tài khoản nhận</span><button class="button button-outline" id="saveQrConfig">Lưu tài khoản</button></div>
+            <p class="table-note">Hãy kiểm tra mã BIN, số tài khoản và tên người nhận với ngân hàng trước khi gửi QR cho phụ huynh.</p>
+          </article>
+          <article class="panel qr-create-card">
+            <div class="panel-header"><div><h2>Chọn món cần tạo QR</h2><p>Mỗi QR gắn với một học sinh và một khoản thu.</p></div><span class="mini-tag" id="qrDueCount">0 món còn phải thu</span></div>
+            <div class="qr-filter-grid">
+              <label class="qr-field"><span>Khoản thu</span><select id="qrFeeFilter"><option value="all">Tất cả khoản thu</option><option value="insurance">Bảo hiểm y tế (BHYT)</option><option value="mandatory">Bảo hiểm thân thể (BHTT)</option><option value="service">Dịch vụ</option></select></label>
+              <label class="qr-field"><span>Lớp</span><select id="qrClassFilter"><option value="all">Tất cả lớp</option></select></label>
+              <label class="qr-field"><span>Danh sách</span><select id="qrStatusFilter"><option value="unpaid">Chỉ món chưa ghi nhận đã thu</option><option value="all">Tất cả món phải thu</option></select></label>
+            </div>
+            <div class="qr-create-actions"><span id="qrSelectionCount">Chưa có QR được tạo</span><button class="button button-primary" id="generateQrs">Tạo QR</button><button class="button button-outline" id="downloadQrs" hidden>↓ Tải ZIP</button></div>
+          </article>
+        </div>
+        <div class="qr-preview-header"><div><h2>Ảnh QR theo học sinh</h2><p id="qrPreviewSummary">Chọn điều kiện rồi bấm “Tạo QR”.</p></div></div>
+        <div class="qr-preview-grid" id="qrPreviewGrid"><div class="panel qr-empty-state">Nhập danh sách học sinh có chi tiết từng khoản phải thu để bắt đầu.</div></div>
+      </section>
+
+      <section class="page" id="page-notices">
+        <div class="page-heading"><div><span class="eyebrow">GỬI PHỤ HUYNH</span><h1>Thông báo nộp tiền</h1><p>Tạo hàng loạt thông báo khoản thu có QR định danh để in A4 hoặc xuất ảnh gửi Zalo/phụ huynh.</p></div><span class="mini-tag">Tạo cục bộ</span></div>
+        <div class="notice-tool-grid">
+          <article class="panel notice-builder-card">
+            <div class="panel-header"><div><h2>1. Chọn đối tượng & khoản thu</h2><p>Mỗi học sinh tạo một thông báo và một QR tổng cho các món được chọn.</p></div><span class="category-badge">BIDV QR</span></div>
+            <div class="notice-form-grid">
+              <label class="qr-field"><span>Lớp</span><select id="noticeClass"><option value="all">Tất cả lớp</option></select></label>
+              <label class="qr-field"><span>Học sinh</span><select id="noticeStudent"><option value="all">Tất cả học sinh trong phạm vi</option></select></label>
+              <label class="qr-field"><span>Hạn nộp</span><input id="noticeDeadline" type="date"></label>
+              <label class="qr-field"><span>Trạng thái khoản</span><select id="noticeDueStatus"><option value="unpaid">Chỉ khoản chưa thu</option><option value="all">Tất cả khoản được phân giao</option></select></label>
+              <label class="qr-field notice-fee-select"><span>Khoản cần thông báo</span><select id="noticeFees" multiple size="7"><option value="all" selected>Tất cả khoản phù hợp</option></select><small>Giữ Ctrl/Cmd để chọn nhiều khoản. Chọn “Tất cả” để lấy toàn bộ khoản phù hợp.</small></label>
+              <label class="qr-field notice-message-field"><span>Lời nhắn cuối thông báo</span><textarea id="noticeMessage" rows="4" maxlength="260">Nếu phụ huynh đã thanh toán, vui lòng bỏ qua thông báo này.</textarea></label>
+            </div>
+            <div class="notice-summary-box"><div><span>Số học sinh</span><strong id="noticeStudentCount">0</strong></div><div><span>Số món</span><strong id="noticeItemCount">0</strong></div><div><span>Tổng cần thông báo</span><strong id="noticeAmountTotal">0 ₫</strong></div></div>
+          </article>
+
+          <article class="panel notice-output-card">
+            <div class="panel-header"><div><h2>2. Kiểu đầu ra</h2><p>Hai mẫu dùng chung dữ liệu và QR thanh toán.</p></div></div>
+            <div class="notice-template-options">
+              <label class="notice-template-option selected"><input type="radio" name="noticeTemplate" value="a4" checked><div><strong>Mẫu A4 chuẩn</strong><span>Trang trọng, dễ in/PDF, mỗi học sinh một trang.</span></div><i>A4</i></label>
+              <label class="notice-template-option"><input type="radio" name="noticeTemplate" value="mobile"><div><strong>Mẫu ảnh điện thoại</strong><span>Gọn, QR lớn, phù hợp gửi Zalo/Messenger.</span></div><i>9:16</i></label>
+            </div>
+            <div class="notice-output-actions">
+              <button class="button button-outline" id="previewNotices">Xem trước</button>
+              <button class="button button-primary" id="printNoticeA4">In / Lưu PDF A4</button>
+              <button class="button button-primary" id="downloadNoticeImages">↓ Xuất ZIP ảnh PNG</button>
+            </div>
+            <div class="notice-export-note"><strong>QR thanh toán:</strong><span>QR được tạo ngay trên máy với số tiền tổng của các khoản đang chọn. Phần dưới QR hiển thị napas247 · BIDV · hoa mai vàng để phụ huynh dễ nhận biết kênh thanh toán.</span></div>
+          </article>
+        </div>
+
+        <article class="panel notice-preview-panel">
+          <div class="panel-header"><div><h2>Xem trước thông báo</h2><p id="noticePreviewSummary">Chọn dữ liệu rồi bấm “Xem trước”.</p></div><span class="mini-tag" id="noticeQrStatus">Chưa tạo QR</span></div>
+          <div class="notice-preview-list" id="noticePreviewList"><div class="empty-inline">Chưa có thông báo được tạo.</div></div>
+        </article>
+        <div class="mapping-note"><span class="note-icon">i</span><div><strong>Dữ liệu riêng tư:</strong><p>Ảnh/PDF được tạo hoàn toàn trong trình duyệt. Danh sách học sinh và số tiền không được gửi lên dịch vụ tạo ảnh bên ngoài.</p></div></div>
+      </section>
+
+      <section class="page" id="page-receipts">
+        <div class="page-heading"><div><span class="eyebrow">CHỨNG TỪ KHOẢN ĐÃ THU</span><h1>Phiếu thu / Xác nhận</h1><p>Phát hành chứng từ từ các món đã đối soát thành công. Chứng từ chuyển khoản mặc định là “Phiếu xác nhận thanh toán”.</p></div><button class="button button-outline" id="receiptConfigToggle">⚙ Thông tin chứng từ</button></div>
+
+        <article class="panel receipt-config-card" id="receiptConfigCard">
+          <div class="panel-header"><div><h2>Thông tin đơn vị & người ký</h2><p>Lưu cục bộ trên thiết bị, dùng để trình bày chứng từ in/PDF.</p></div><span class="mini-tag">Cấu hình</span></div>
+          <div class="receipt-config-grid">
+            <label class="qr-field"><span>Cơ quan chủ quản</span><input id="receiptParentUnit" value="UBND XÃ HIẾU GIANG" maxlength="100"></label>
+            <label class="qr-field"><span>Tên đơn vị</span><input id="receiptSchoolName" value="TRƯỜNG THCS SỐ 2 HIẾU GIANG" maxlength="120"></label>
+            <label class="qr-field qr-field-wide"><span>Địa chỉ</span><input id="receiptSchoolAddress" maxlength="160" placeholder="Địa chỉ của trường"></label>
+            <label class="qr-field"><span>Mã đơn vị / MST (nếu dùng)</span><input id="receiptUnitCode" maxlength="40" placeholder="Không bắt buộc"></label>
+            <label class="qr-field"><span>Tiền tố xác nhận chuyển khoản</span><input id="receiptTransferPrefix" value="XN" maxlength="6" placeholder="XN"></label>
+            <label class="qr-field"><span>Tiền tố phiếu thu tiền mặt</span><input id="receiptCashPrefix" value="PT" maxlength="6" placeholder="PT"></label>
+            <label class="qr-field"><span>Người lập</span><input id="receiptPreparer" maxlength="80" placeholder="Họ và tên"></label>
+            <label class="qr-field"><span>Thủ quỹ</span><input id="receiptCashier" maxlength="80" placeholder="Họ và tên"></label>
+            <label class="qr-field"><span>Kế toán / Phụ trách kế toán</span><input id="receiptAccountant" maxlength="80" placeholder="Họ và tên"></label>
+            <label class="qr-field"><span>Thủ trưởng đơn vị</span><input id="receiptHead" maxlength="80" placeholder="Họ và tên"></label>
+          </div>
+          <div class="receipt-config-actions"><span>Không chèn ảnh chữ ký. Chứng từ chỉ hiển thị họ tên người ký khi đã cấu hình.</span><button class="button button-primary" id="saveReceiptConfig">Lưu cấu hình</button></div>
+        </article>
+
+        <article class="panel cash-entry-card">
+          <div class="panel-header"><div><h2>Ghi nhận thu tiền mặt</h2><p>Chọn đúng học sinh và món chưa thu. Khoản tiền mặt được lưu riêng và không bị mất khi cập nhật báo cáo ngân hàng.</p></div><span class="category-badge service">TIỀN MẶT</span></div>
+          <div class="cash-entry-grid">
+            <label class="qr-field"><span>Lớp</span><select id="cashClass"><option value="">— Chọn lớp —</option></select></label>
+            <label class="qr-field"><span>Học sinh</span><select id="cashStudent"><option value="">— Chọn học sinh —</option></select></label>
+            <label class="qr-field"><span>Khoản chưa thu</span><select id="cashFee"><option value="">— Chọn khoản thu —</option></select></label>
+            <label class="qr-field"><span>Ngày thu</span><input id="cashDate" type="date"></label>
+            <label class="qr-field"><span>Người nộp tiền</span><input id="cashPayer" maxlength="100" placeholder="Phụ huynh/người nộp"></label>
+            <label class="qr-field"><span>Số tiền</span><input id="cashAmount" readonly></label>
+            <label class="qr-field qr-field-wide"><span>Lý do / ghi chú</span><input id="cashNote" maxlength="180" placeholder="Ví dụ: Nộp Bảo hiểm thân thể cho học sinh"></label>
+          </div>
+          <div class="cash-entry-preview" id="cashEntryPreview">Chọn học sinh và khoản thu để ghi nhận tiền mặt.</div>
+          <div class="receipt-batch-actions"><span>Hiện tại chỉ ghi nhận đủ 100% số tiền của từng món để bảo đảm đối soát một-món/một-giao-dịch.</span><button class="button button-outline" id="recordCashPayment">Ghi nhận tiền mặt</button><button class="button button-primary" id="recordAndPrintCash">Ghi nhận & In phiếu thu</button></div>
+        </article>
+
+        <article class="panel receipt-filter-card">
+          <div class="panel-header"><div><h2>Chọn chứng từ</h2><p>Lọc theo khoản thu, lớp, học sinh, ngày thanh toán và trạng thái phát hành.</p></div><div class="receipt-mini-stats"><span>Chờ cấp <b id="receiptReadyCount">0</b></span><span>Đã cấp <b id="receiptIssuedCount">0</b></span><span>Đã hủy <b id="receiptCancelledCount">0</b></span></div></div>
+          <div class="receipt-filter-grid">
+            <label class="qr-field"><span>Khoản thu</span><select id="receiptFeeFilter"><option value="all">Tất cả khoản thu</option></select></label>
+            <label class="qr-field"><span>Lớp</span><select id="receiptClassFilter"><option value="all">Tất cả lớp</option></select></label>
+            <label class="qr-field"><span>Học sinh</span><select id="receiptStudentFilter"><option value="all">Tất cả học sinh</option></select></label>
+            <label class="qr-field"><span>Trạng thái</span><select id="receiptStatusFilter"><option value="all">Tất cả</option><option value="ready">Chưa phát hành</option><option value="issued">Đã phát hành</option><option value="cancelled">Đã hủy</option></select></label>
+            <label class="qr-field"><span>Hình thức thu</span><select id="receiptMethodFilter"><option value="all">Tất cả</option><option value="transfer">Chuyển khoản/QR</option><option value="cash">Tiền mặt</option></select></label>
+            <label class="qr-field"><span>Từ ngày thu</span><input id="receiptDateFrom" type="date"></label>
+            <label class="qr-field"><span>Đến ngày thu</span><input id="receiptDateTo" type="date"></label>
+          </div>
+          <div class="receipt-batch-actions"><span id="receiptFilterSummary">Chưa có món đã thu phù hợp.</span><button class="button button-outline" id="printIssuedReceipts">In/Lưu PDF đã cấp</button><button class="button button-primary" id="issueFilteredReceipts">Phát hành & In/Lưu PDF</button></div>
+        </article>
+
+        <article class="panel table-panel receipt-register-panel">
+          <div class="panel-header"><div><h2>Sổ chứng từ thu</h2><p>Số chứng từ chạy liên tục theo năm. Chứng từ đã hủy vẫn được giữ lại trong lịch sử.</p></div><button class="button button-outline button-small" id="exportReceiptRegister">↓ Xuất sổ CSV</button></div>
+          <div class="table-wrap"><table class="receipt-table"><thead><tr><th>NGÀY THU</th><th>SỐ CT</th><th>HỌC SINH</th><th>LỚP</th><th>KHOẢN THU</th><th>SỐ TIỀN</th><th>MÃ GIAO DỊCH</th><th>TRẠNG THÁI</th><th>THAO TÁC</th></tr></thead><tbody id="receiptTable"><tr><td colspan="9" class="empty-cell">Chưa có món thu hợp lệ để phát hành chứng từ.</td></tr></tbody></table></div>
+        </article>
+        <div class="mapping-note"><span class="note-icon">i</span><div><strong>Nguyên tắc phát hành:</strong><p>Web chỉ cho cấp chứng từ khi giao dịch đã đối soát thành công, đúng học sinh, đúng món và đúng số tiền. Chứng từ bị hủy không bị xóa số; muốn phát hành lại sẽ dùng số mới.</p></div></div>
+      </section>
+
+      <section class="page" id="page-imports">
+        <div class="page-heading"><div><span class="eyebrow">CẬP NHẬT DỮ LIỆU</span><h1>Nhập dữ liệu</h1><p>Nhập danh sách học sinh trước, sau đó bổ sung báo cáo thu mới nhất.</p></div></div>
+        <div class="import-cards">
+          <article class="panel import-card"><div class="import-card-top"><span class="import-step">01</span><span class="import-card-icon student-icon">♧</span></div><span class="eyebrow">DỮ LIỆU GỐC NHÀ TRƯỜNG</span><h2>Danh sách học sinh</h2><p>Tự tìm dòng tiêu đề và nhận diện Mã MOET, họ tên, lớp, ngày sinh, giới tính, dân tộc, phụ huynh và điện thoại. Không cần có sẵn khoản thu.</p><div class="file-types">Excel .xlsx · CSV .csv</div><button class="button button-outline full-button" id="studentImportButton2">Chọn file danh sách</button><div class="last-import" id="studentLastImport">Chưa nhập file</div></article>
+          <article class="panel import-card featured-import"><div class="import-card-top"><span class="import-step">02</span><span class="import-card-icon bank-icon">₫</span></div><span class="eyebrow">CẬP NHẬT MỖI LẦN CÓ BÁO CÁO MỚI</span><h2>Báo cáo thu</h2><p>Đối soát theo Mã khách hàng, số hóa đơn, ngày giao dịch, trạng thái và số tiền trên file ngân hàng.</p><div class="file-types">Excel .xlsx · CSV .csv</div><button class="button button-primary full-button" id="bankImportButton">⇧ Chọn file báo cáo thu</button><div class="last-import" id="bankLastImport">Chưa nhập file</div></article>
+        </div>
+        <div class="mapping-note"><span class="note-icon">i</span><div><strong>Dữ liệu được đọc trực tiếp trong trình duyệt.</strong><p>Danh sách học sinh có thể có nhiều dòng tiêu đề phía trên; web tự tìm dòng chứa Họ tên/Lớp/Mã MOET. Báo cáo ngân hàng được ghép bằng mã khách hàng của từng món thu; chỉ giao dịch thành công và đúng số tiền mới được tính đã thu.</p></div></div>
+        <article class="panel table-panel"><div class="panel-header"><div><h2>Kết quả đối soát</h2><p>Giao dịch trùng mã sẽ được bỏ qua khi nhập lần tiếp theo</p></div><div class="filter-pills"><span class="filter-pill">Tất cả <b id="importsAllTxnCount">0</b></span><span class="filter-pill">Khớp <b id="importsMatchedTxnCount">0</b></span><span class="filter-pill">Chưa khớp <b id="importsUnmatchedTxnCount">0</b></span></div></div><div class="table-wrap"><table><thead><tr><th>NGÀY</th><th>MÃ GIAO DỊCH</th><th>KHOẢN THU</th><th>NỘI DUNG</th><th>HỌC SINH</th><th>SỐ TIỀN</th><th>TRẠNG THÁI</th></tr></thead><tbody id="importsTransactionsTable"><tr><td colspan="7" class="empty-cell">Chưa có báo cáo thu.</td></tr></tbody></table></div></article>
+      </section>
+
+      <section class="page" id="page-history">
+        <div class="page-heading"><div><span class="eyebrow">NHẬT KÝ CẬP NHẬT</span><h1>Tra cứu & báo cáo</h1><p>Xem lịch sử nhập file và kết quả từng lần cập nhật dữ liệu.</p></div></div>
+        <article class="panel table-panel"><div class="panel-header"><div><h2>Lịch sử nhập file</h2><p>Nhật ký chỉ lưu trên máy đang sử dụng</p></div></div><div class="table-wrap"><table><thead><tr><th>THỜI GIAN</th><th>LOẠI FILE</th><th>TÊN FILE</th><th>SỐ DÒNG</th><th>KẾT QUẢ</th></tr></thead><tbody id="historyTable"><tr><td colspan="5" class="empty-cell">Chưa có lịch sử nhập file.</td></tr></tbody></table></div></article>
+      </section>
+
+      <section class="page" id="page-settings">
+        <div class="page-heading"><div><span class="eyebrow">AN TOÀN DỮ LIỆU</span><h1>Sao lưu & cài đặt</h1><p>Quản lý dữ liệu đang lưu trên thiết bị này.</p></div></div>
+        <div class="settings-grid">
+          <article class="panel setting-card"><div class="setting-icon">⤓</div><h2>Sao lưu dữ liệu</h2><p>Tải xuống bản sao lưu được mã hóa bằng mật khẩu, gồm học sinh, khoản thu, giao dịch và nhật ký.</p><button class="button button-primary" id="backupButton">Tạo bản sao lưu</button></article>
+          <article class="panel setting-card"><div class="setting-icon">⤒</div><h2>Khôi phục dữ liệu</h2><p>Chọn bản sao lưu đã tạo để chuyển dữ liệu sang máy khác. Cần đúng mật khẩu.</p><button class="button button-outline" id="restoreButton">Chọn tệp sao lưu</button></article>
+          <article class="panel setting-card danger-card"><div class="setting-icon">⌫</div><h2>Xóa dữ liệu trên máy này</h2><p>Xóa học sinh, giao dịch và lịch sử đã lưu trong trình duyệt hiện tại.</p><button class="button button-danger" id="clearDataButton">Xóa toàn bộ dữ liệu</button></article>
+        </div>
+        <div class="privacy-explainer"><span class="privacy-mark">✓</span><div><strong>Dữ liệu không tự đồng bộ giữa các máy.</strong><p>Máy kế toán và máy hiệu trưởng có kho riêng. Muốn chuyển số liệu, hãy tạo bản sao lưu có mật khẩu rồi chuyển tệp theo quy trình nội bộ của trường. GitHub chỉ lưu mã giao diện, không lưu danh sách học sinh.</p></div></div>
+      </section>
+
+      <footer class="app-footer"><span>SchoolCollect · Sổ thu học sinh</span><span>Chạy cục bộ trên trình duyệt · <span id="storageStatus">Đang kiểm tra kho dữ liệu…</span></span></footer>
+    </main>
+  </div>
+
+  <input type="file" id="studentFileInput" accept=".xlsx,.csv,.tsv,.txt" hidden>
+  <input type="file" id="bankFileInput" accept=".xlsx,.csv,.tsv,.txt" hidden>
+  <input type="file" id="restoreFileInput" accept=".sctbackup" hidden>
+  <div class="class-detail-backdrop" id="classDetailBackdrop">
+    <section class="class-detail-sheet" role="dialog" aria-modal="true" aria-labelledby="classDetailTitle">
+      <div class="class-detail-head"><div><span class="eyebrow">CHI TIẾT THEO LỚP</span><h2 id="classDetailTitle">Lớp</h2><p id="classDetailSubtitle"></p></div><button class="icon-button" id="classDetailClose" aria-label="Đóng">×</button></div>
+      <div class="class-fee-summary" id="classFeeSummary"></div>
+      <div class="class-detail-table-wrap"><table class="class-detail-table"><thead><tr><th>MÃ HS</th><th>HỌ VÀ TÊN</th><th>CÁC KHOẢN NỘP</th></tr></thead><tbody id="classStudentTable"></tbody></table></div>
+    </section>
+  </div>
+  <div class="student-profile-backdrop" id="studentProfileBackdrop">
+    <section class="student-profile-sheet" role="dialog" aria-modal="true" aria-labelledby="studentProfileTitle">
+      <div class="class-detail-head"><div><span class="eyebrow">HỒ SƠ HỌC SINH</span><h2 id="studentProfileTitle">Học sinh</h2><p id="studentProfileSubtitle"></p></div><button class="icon-button" id="studentProfileClose" aria-label="Đóng">×</button></div>
+      <div class="student-profile-grid" id="studentProfileInfo"></div>
+      <div class="student-profile-fees"><div class="panel-header"><div><h2>Các khoản phải thu</h2><p>Trạng thái được đối soát theo từng mã khách hàng.</p></div></div><div id="studentProfileFees"></div></div>
+    </section>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-header"><div><div class="eyebrow" id="modalEyebrow">NHẬP FILE</div><h2 id="modalTitle">Ghép cột dữ liệu</h2></div><button class="icon-button" id="modalClose" aria-label="Đóng">×</button></div><div id="modalBody"></div><div class="modal-actions"><button class="button button-outline" id="modalCancel">Hủy</button><button class="button button-primary" id="modalConfirm">Xác nhận nhập</button></div></section></div>
+  <div class="notice-print-root" id="noticePrintRoot" aria-hidden="true"></div>
+  <div class="receipt-print-root" id="receiptPrintRoot" aria-hidden="true"></div>
+  <script src="vendor/qrcode.min.js"></script>
+  <script src="vendor/jszip.min.js"></script>
+  <script src="app.js"></script>
+  <script src="insurance.js"></script>
+</body>
+</html>
