@@ -75,10 +75,10 @@
 
       <section class="page" id="page-students">
         <div class="page-heading"><div><span class="eyebrow">DANH SÁCH GỐC</span><h1>Học sinh</h1><p>Quản lý hồ sơ học sinh và toàn bộ các khoản phải thu đã phân giao.</p></div><button class="button button-primary" id="studentImportButton">⇧ Tải file học sinh</button></div>
-        <div class="toolbar"><div class="search-box"><span>⌕</span><input id="studentSearch" type="search" placeholder="Tìm theo tên, Mã MOET, lớp hoặc số điện thoại..."></div><div class="toolbar-right"><span id="studentCountLabel">0 học sinh</span><button class="button button-outline" id="exportStudents">↓ Xuất danh sách</button></div></div>
+        <div class="toolbar"><div class="search-box"><span>⌕</span><input id="studentSearch" type="search" placeholder="Tìm theo tên, mã học sinh, Mã số CĐ, lớp..."></div><div class="toolbar-right"><span id="studentCountLabel">0 học sinh</span><button class="button button-outline" id="exportStudents">↓ Xuất danh sách</button></div></div>
         <div class="student-warning-panel" id="studentWarningPanel" hidden><div><strong id="studentWarningTitle">Có hồ sơ cần bổ sung</strong><p id="studentWarningText"></p></div><button class="button button-outline button-small" id="showIncompleteStudents">Xem hồ sơ cần bổ sung</button></div>
-        <article class="panel table-panel"><div class="table-wrap"><table class="student-master-table"><thead><tr><th>MÃ MOET</th><th>HỌ VÀ TÊN</th><th>LỚP</th><th>NGÀY SINH</th><th>PHỤ HUYNH / ĐIỆN THOẠI</th><th>MÓN PHẢI THU</th><th>PHẢI THU</th><th>ĐÃ THU</th><th>CÒN LẠI</th><th></th></tr></thead><tbody id="studentsTable"><tr><td colspan="10" class="empty-cell">Chưa có học sinh. Hãy tải file danh sách gốc của trường.</td></tr></tbody></table></div></article>
-        <p class="table-note">Web tự nhận diện dòng tiêu đề trong file Excel, ưu tiên “Mã MOET” làm mã học sinh. Khoản thu được tạo và phân giao trực tiếp trên web, không cần chuẩn bị sẵn các dòng BHYT/BHTT trong file đầu vào.</p>
+        <article class="panel table-panel"><div class="table-wrap"><table class="student-master-table"><thead><tr><th>MÃ HỌC SINH</th><th>HỌ VÀ TÊN</th><th>LỚP</th><th>NGÀY SINH</th><th>PHỤ HUYNH / ĐIỆN THOẠI</th><th>MÓN PHẢI THU</th><th>PHẢI THU</th><th>ĐÃ THU</th><th>CÒN LẠI</th><th></th></tr></thead><tbody id="studentsTable"><tr><td colspan="10" class="empty-cell">Chưa có học sinh. Hãy tải file danh sách gốc của trường.</td></tr></tbody></table></div></article>
+        <p class="table-note">Web tự nhận diện mẫu THCS Số 2 Hiếu Giang. Nếu file chưa có mã học sinh nội bộ, web tự cấp mã HG2-00001, HG2-00002… và giữ ổn định ở các lần nhập sau. Các cột BHYT/BHTT trong file được đọc trực tiếp thành khoản phải thu.</p>
       </section>
 
       <section class="page" id="page-fee-setup">
@@ -92,7 +92,7 @@
               <label class="qr-field"><span>Mã khoản</span><input id="feeCode" maxlength="12" placeholder="Ví dụ: BHTT"></label>
               <label class="qr-field"><span>Số tiền / học sinh</span><input id="feeAmount" inputmode="numeric" placeholder="Ví dụ: 150000"></label>
               <label class="qr-field"><span>Nhóm khoản</span><select id="feeCategory"><option value="service">Khoản thu / dịch vụ khác</option><option value="insurance">Bảo hiểm y tế (BHYT)</option><option value="mandatory">Bảo hiểm thân thể (BHTT)</option><option value="other">Khoản khác</option></select></label>
-              <label class="qr-field"><span>Tiền tố mã KH</span><input id="feePrefix" maxlength="8" value="HG" placeholder="HG"></label>
+              <label class="qr-field"><span>Tiền tố mã KH</span><input id="feePrefix" maxlength="8" value="HG2" placeholder="HG2"></label>
               <label class="qr-field"><span>Phạm vi phân giao</span><select id="feeScope"><option value="all">Toàn trường</option><option value="grade">Theo khối</option><option value="class">Theo lớp</option><option value="student">Chọn học sinh</option></select></label>
             </div>
             <div class="fee-target-block">
@@ -100,7 +100,7 @@
               <select id="feeTargets" multiple size="7" aria-label="Chọn đối tượng phân giao"></select>
               <small>Giữ Ctrl/Cmd để chọn nhiều khối, lớp hoặc học sinh. Với “Toàn trường” không cần chọn.</small>
             </div>
-            <div class="fee-code-preview"><span>Mẫu mã khách hàng</span><strong id="feeCodePreview">HG + Mã MOET + Mã khoản</strong><small id="feeCodePreviewExample">Ví dụ sẽ hiển thị sau khi có danh sách học sinh.</small></div>
+            <div class="fee-code-preview"><span>Mẫu mã khách hàng</span><strong id="feeCodePreview">HG2 + Mã học sinh + Mã khoản</strong><small id="feeCodePreviewExample">Ví dụ sẽ hiển thị sau khi có danh sách học sinh.</small></div>
             <div class="fee-builder-actions"><button class="button button-outline" id="cancelFeeEdit" hidden>Hủy</button><button class="button button-primary" id="saveFeeAssignment">Tạo & phân giao</button></div>
           </article>
           <article class="panel fee-catalog-panel">
@@ -242,10 +242,10 @@
       <section class="page" id="page-imports">
         <div class="page-heading"><div><span class="eyebrow">CẬP NHẬT DỮ LIỆU</span><h1>Nhập dữ liệu</h1><p>Nhập danh sách học sinh trước, sau đó bổ sung báo cáo thu mới nhất.</p></div></div>
         <div class="import-cards">
-          <article class="panel import-card"><div class="import-card-top"><span class="import-step">01</span><span class="import-card-icon student-icon">♧</span></div><span class="eyebrow">DỮ LIỆU GỐC NHÀ TRƯỜNG</span><h2>Danh sách học sinh</h2><p>Tự tìm dòng tiêu đề và nhận diện Mã MOET, họ tên, lớp, ngày sinh, giới tính, dân tộc, phụ huynh và điện thoại. Không cần có sẵn khoản thu.</p><div class="file-types">Excel .xlsx · CSV .csv</div><button class="button button-outline full-button" id="studentImportButton2">Chọn file danh sách</button><div class="last-import" id="studentLastImport">Chưa nhập file</div></article>
+          <article class="panel import-card"><div class="import-card-top"><span class="import-step">01</span><span class="import-card-icon student-icon">♧</span></div><span class="eyebrow">DỮ LIỆU GỐC NHÀ TRƯỜNG</span><h2>Danh sách học sinh</h2><p>Tự tìm dòng tiêu đề và nhận diện Tên lớp học, Mã số CĐ, Họ tên, Giới tính, Ngày sinh, Phân loại HS, BHYT, BHTT và Ghi chú. Chỉ Họ tên + Lớp là bắt buộc.</p><div class="file-types">Excel .xlsx · CSV .csv</div><button class="button button-outline full-button" id="studentImportButton2">Chọn file danh sách</button><div class="last-import" id="studentLastImport">Chưa nhập file</div></article>
           <article class="panel import-card featured-import"><div class="import-card-top"><span class="import-step">02</span><span class="import-card-icon bank-icon">₫</span></div><span class="eyebrow">CẬP NHẬT MỖI LẦN CÓ BÁO CÁO MỚI</span><h2>Báo cáo thu</h2><p>Đối soát theo Mã khách hàng, số hóa đơn, ngày giao dịch, trạng thái và số tiền trên file ngân hàng.</p><div class="file-types">Excel .xlsx · CSV .csv</div><button class="button button-primary full-button" id="bankImportButton">⇧ Chọn file báo cáo thu</button><div class="last-import" id="bankLastImport">Chưa nhập file</div></article>
         </div>
-        <div class="mapping-note"><span class="note-icon">i</span><div><strong>Dữ liệu được đọc trực tiếp trong trình duyệt.</strong><p>Danh sách học sinh có thể có nhiều dòng tiêu đề phía trên; web tự tìm dòng chứa Họ tên/Lớp/Mã MOET. Báo cáo ngân hàng được ghép bằng mã khách hàng của từng món thu; chỉ giao dịch thành công và đúng số tiền mới được tính đã thu.</p></div></div>
+        <div class="mapping-note"><span class="note-icon">i</span><div><strong>Dữ liệu được đọc trực tiếp trong trình duyệt.</strong><p>Danh sách học sinh có thể có nhiều dòng tiêu đề phía trên; web tự tìm dòng chứa Họ tên/Lớp và nhận mẫu của THCS Số 2 Hiếu Giang. “Mã số CĐ” được lưu như mã ngoài để nhận diện bổ sung, không dùng trực tiếp làm mã thanh toán. Báo cáo ngân hàng vẫn ghép bằng mã khách hàng của từng món thu; chỉ giao dịch thành công và đúng số tiền mới được tính đã thu.</p></div></div>
         <article class="panel table-panel"><div class="panel-header"><div><h2>Kết quả đối soát</h2><p>Giao dịch trùng mã sẽ được bỏ qua khi nhập lần tiếp theo</p></div><div class="filter-pills"><span class="filter-pill">Tất cả <b id="importsAllTxnCount">0</b></span><span class="filter-pill">Khớp <b id="importsMatchedTxnCount">0</b></span><span class="filter-pill">Chưa khớp <b id="importsUnmatchedTxnCount">0</b></span></div></div><div class="table-wrap"><table><thead><tr><th>NGÀY</th><th>MÃ GIAO DỊCH</th><th>KHOẢN THU</th><th>NỘI DUNG</th><th>HỌC SINH</th><th>SỐ TIỀN</th><th>TRẠNG THÁI</th></tr></thead><tbody id="importsTransactionsTable"><tr><td colspan="7" class="empty-cell">Chưa có báo cáo thu.</td></tr></tbody></table></div></article>
       </section>
 
