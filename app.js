@@ -732,6 +732,7 @@ async function confirmImport() {
         const byIdentity=uniqueStudentIndex(existingList,studentIdentity);
         const byExternal=uniqueStudentIndex(existingList,s=>slug(String(s.externalCode||'').replace(/\s+/g,'')));
         const allocator=createStudentCodeAllocator(existingList);
+        const classAllocator=createClassStudentCodeAllocator(existingList);
         dataRows.forEach(row=>allocator.reserve(cell(row,map,'code')));
         const feeMapped=['due','dueInsurance','dueMandatory','dueService','dueParking','dueWater'].some(field=>Number(map[field])>=0);
         const merged=new Map(),warnings=[];const tempToDelete=new Set();
@@ -771,10 +772,12 @@ async function confirmImport() {
           if(missing.length)warnings.push(`Dòng ${index+2}: còn thiếu ${missing.join(', ')}; vẫn được nhập để bổ sung sau.`);
           const choose=(fresh,oldValue)=>fresh||oldValue||'';
           const fees=feeMapped?studentFeesFromRow(row,map):null;
+          const effectiveClass=choose(className,prior.className);
+          const classStudentCode=classAllocator.validForClass(prior.classStudentCode,effectiveClass)?prior.classStudentCode:classAllocator.next(effectiveClass);
           const next={
-            ...prior,code,
+            ...prior,code,classStudentCode,
             name:choose(name,prior.name),
-            className:choose(className,prior.className),
+            className:effectiveClass,
             externalCode:choose(profile.externalCode,prior.externalCode),
             personalId:choose(profile.personalId,prior.personalId),
             gender:choose(profile.gender,prior.gender),
@@ -1081,7 +1084,7 @@ function renderStudents(students, transactions) {
   const query = slug($('#studentSearch')?.value || '');
   const filtered = students.filter(s => {
     const warningCount=studentWarnings(s).length;
-    return (!showIncompleteOnly||warningCount>0)&&(!query || slug(`${s.code} ${s.externalCode||''} ${s.name} ${s.className} ${s.phone||''} ${s.personalId||''} ${s.studentType||''} ${s.note||''}`).includes(query));
+    return (!showIncompleteOnly||warningCount>0)&&(!query || slug(`${s.code} ${s.classStudentCode||''} ${s.externalCode||''} ${s.name} ${s.className} ${s.phone||''} ${s.personalId||''} ${s.studentType||''} ${s.note||''}`).includes(query));
   });
   const incomplete=students.filter(s=>studentWarnings(s).length>0);
   $('#studentCountLabel').textContent = `${students.length.toLocaleString('vi-VN')} học sinh`;
@@ -1097,7 +1100,7 @@ function renderStudents(students, transactions) {
     const parent=[s.fatherName,s.motherName].filter(Boolean).join(' / ');
     const contact=[parent,s.phone].filter(Boolean).join(' · ');
     const warnings=studentWarnings(s);const warn=warnings.length?`<span class="student-warning-badge" title="${escapeHTML(warnings.join(' · '))}">⚠ ${warnings.length}</span>`:'';
-    return `<tr class="student-master-row ${warnings.length?'has-warning':''}" data-student-code="${escapeHTML(s.code)}"><td><strong>${escapeHTML(s.code)}</strong> ${warn}</td><td><strong>${escapeHTML(s.name)}</strong></td><td>${escapeHTML(s.className || '—')}</td><td>${escapeHTML(s.birthDate||'—')}</td><td class="student-contact-cell">${escapeHTML(contact||'—')}</td><td>${items.length}</td><td>${money(due)}</td><td>${money(paid)}</td><td class="remain-cell"><strong>${money(Math.max(0,due-paid))}</strong></td><td><button class="text-button student-detail-button" data-student-code="${escapeHTML(s.code)}">Chi tiết ›</button></td></tr>`;
+    return `<tr class="student-master-row ${warnings.length?'has-warning':''}" data-student-code="${escapeHTML(s.code)}"><td><strong>${escapeHTML(s.classStudentCode||s.code)}</strong><small class="muted-code">${escapeHTML(s.code)}</small> ${warn}</td><td><strong>${escapeHTML(s.name)}</strong></td><td>${escapeHTML(s.className || '—')}</td><td>${escapeHTML(s.birthDate||'—')}</td><td class="student-contact-cell">${escapeHTML(contact||'—')}</td><td>${items.length}</td><td>${money(due)}</td><td>${money(paid)}</td><td class="remain-cell"><strong>${money(Math.max(0,due-paid))}</strong></td><td><button class="text-button student-detail-button" data-student-code="${escapeHTML(s.code)}">Chi tiết ›</button></td></tr>`;
   }).join('') : `<tr><td colspan="10" class="empty-cell">${students.length ? 'Không tìm thấy học sinh phù hợp.' : 'Chưa có học sinh. Hãy tải file danh sách gốc của trường.'}</td></tr>`;
 }
 function itemMatchesFeeFilter(item,filter){
@@ -1296,7 +1299,7 @@ function populateFeeTargets(students){
 function updateFeePreview(students){
   const prefix=$('#feePrefix')?.value||'HG2',code=$('#feeCode')?.value||'KHOAN',sample=students[0];
   $('#feeCodePreview').textContent=`${feeSafeCode(prefix)||'HG2'} + Mã học sinh + ${feeSafeCode(code)||'MÃ KHOẢN'}`;
-  $('#feeCodePreviewExample').textContent=sample?`Ví dụ: ${buildPaymentCode(prefix,sample.code,code)} · ${sample.name}`:'Ví dụ sẽ hiển thị sau khi có danh sách học sinh.';
+  $('#feeCodePreviewExample').textContent=sample?`Ví dụ: ${buildPaymentCode(prefix,sample.classStudentCode||sample.code,code)} · ${sample.name}`:'Ví dụ sẽ hiển thị sau khi có danh sách học sinh.';
 }
 function resetFeeForm(students=[]){
   $('#feeEditingId').value='';$('#feeBuilderTitle').textContent='Tạo khoản thu';$('#feeName').value='';$('#feeCode').value='';$('#feeAmount').value='';$('#feeCategory').value='service';$('#feePrefix').value='HG2';$('#feeScope').value='all';$('#cancelFeeEdit').hidden=true;$('#saveFeeAssignment').textContent='Tạo & phân giao';populateFeeTargets(students);updateFeePreview(students);
@@ -1327,7 +1330,7 @@ async function saveFeeAssignment(){
   const updated=students.map(s=>{
     const items=studentDueItems(s).filter(item=>item.catalogId!==id);
     if(chosenSet.has(s.code)){
-      const paymentCode=buildPaymentCode(prefix,s.code,code),paymentKey=slug(paymentCode);
+      const paymentCode=buildPaymentCode(prefix,s.classStudentCode||s.code,code),paymentKey=slug(paymentCode);
       if(!paymentCode||[...codes].some(existing=>existing===paymentKey&&!studentDueItems(s).some(x=>x.catalogId===id&&slug(x.paymentCode)===paymentKey)))throw new Error(`Mã khách hàng bị trùng: ${paymentCode}. Hãy đổi tiền tố hoặc mã khoản.`);
       items.push({id:`catalog:${id}:${slug(s.code)}`,catalogId:id,paymentCode,category,name,amount,feeCode:code,createdAt:now});
     }
@@ -1354,7 +1357,7 @@ async function deleteFee(id){
 }
 async function openStudentProfile(code){
   const [students,stored]=await Promise.all([all('students'),all('transactions')]);const s=students.find(x=>x.code===code);if(!s)return;const tx=reconcileTransactions(students,stored);const paid=new Set(tx.filter(t=>t.paymentStatus==='valid'&&t.studentCode===code).flatMap(transactionMatchedItemIds));
-  $('#studentProfileTitle').textContent=`${s.name} · ${s.className}`;$('#studentProfileSubtitle').textContent=`Mã học sinh: ${s.code}`;
+  $('#studentProfileTitle').textContent=`${s.name} · ${s.className}`;$('#studentProfileSubtitle').textContent=`Mã theo lớp: ${s.classStudentCode||'—'} · Mã gốc: ${s.code}`;
   const info=[['Mã số CĐ / mã ngoài',s.externalCode],['Giới tính',s.gender],['Ngày sinh',s.birthDate],['Phân loại HS',s.studentType],['Đăng ký khoản khác',s.registrationInfo],['Ghi chú',s.note],['SĐD cá nhân',s.personalId],['Điện thoại',s.phone]].filter(x=>x[1]);
   $('#studentProfileInfo').innerHTML=info.map(([k,v])=>`<div><span>${k}</span><strong>${escapeHTML(v)}</strong></div>`).join('')||'<div class="empty-inline">Chưa có thông tin hồ sơ bổ sung.</div>';
   const items=studentDueItems(s);$('#studentProfileFees').innerHTML=items.length?items.map(item=>`<div class="student-profile-fee ${paid.has(item.id)?'paid':''}"><div><strong>${escapeHTML(item.name)}</strong><small>${escapeHTML(item.paymentCode||'Chưa có mã thanh toán')}</small></div><b>${money(item.amount)}</b><span>${paid.has(item.id)?'Đã thu':'Chưa thu'}</span></div>`).join(''):'<div class="empty-inline">Học sinh chưa được phân giao khoản thu.</div>';
@@ -1479,7 +1482,7 @@ function noticeA4Html(entry){
   return `<article class="notice-a4-sheet">
     <div class="notice-a4-letterhead"><div><strong>${escapeHTML(entry.school.parentUnit)}</strong><b>${escapeHTML(entry.school.schoolName)}</b></div><div><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong><b>Độc lập - Tự do - Hạnh phúc</b></div></div>
     <h1>THÔNG BÁO KHOẢN THU HỌC SINH</h1>
-    <div class="notice-a4-student"><div><span>Học sinh</span><strong>${escapeHTML(entry.student.name)}</strong></div><div><span>Ngày sinh</span><strong>${escapeHTML(entry.student.birthDate||'—')}</strong></div><div><span>Lớp</span><strong>${escapeHTML(entry.student.className||'—')}</strong></div><div><span>Mã học sinh</span><strong>${escapeHTML(entry.student.code)}</strong></div></div>
+    <div class="notice-a4-student"><div><span>Học sinh</span><strong>${escapeHTML(entry.student.name)}</strong></div><div><span>Ngày sinh</span><strong>${escapeHTML(entry.student.birthDate||'—')}</strong></div><div><span>Lớp</span><strong>${escapeHTML(entry.student.className||'—')}</strong></div><div><span>Mã học sinh</span><strong>${escapeHTML(entry.student.classStudentCode||entry.student.code)}</strong></div></div>
     <h2>Chi tiết các khoản thu</h2><table><thead><tr><th>STT</th><th>Nội dung khoản thu</th><th>Số tiền</th></tr></thead><tbody>${rows}<tr class="notice-total-row"><td colspan="2">Tổng cộng</td><td>${money(entry.total)}</td></tr></tbody></table>
     <div class="notice-a4-words"><b>Bằng chữ:</b> ${escapeHTML(receiptAmountWords(entry.total))}.</div>
     <div class="notice-a4-payment"><div>${noticeBrandHtml(entry.qr)}</div><div class="notice-a4-guide"><h2>Hướng dẫn thanh toán</h2><p><b>1.</b> Quý phụ huynh quét QR để thanh toán.</p><p>QR đã có sẵn tổng tiền và mã tham chiếu <strong>${escapeHTML(entry.remark)}</strong>, không cần nhập lại nội dung.</p><p><b>2. Hạn nộp:</b> <strong class="notice-deadline">Trước ngày ${escapeHTML(noticeDateVi(entry.deadline))}</strong></p><p><b>3.</b> Sau khi thanh toán thành công, nhà trường cập nhật theo báo cáo thu BIDV.</p><p class="notice-parent-message">${escapeHTML(entry.message)}</p></div></div>
@@ -1489,7 +1492,7 @@ function noticeA4Html(entry){
 function renderNoticePreview(entries){
   const template=document.querySelector('input[name="noticeTemplate"]:checked')?.value||'a4';
   $('#noticePreviewSummary').textContent=`${entries.length} thông báo · ${entries.reduce((n,x)=>n+x.items.length,0)} món thu`;$('#noticeQrStatus').textContent=`${entries.length} QR đã tạo`;
-  $('#noticePreviewList').innerHTML=entries.slice(0,6).map(e=>template==='a4'?noticeA4Html(e):`<article class="notice-mobile-preview"><div class="notice-mobile-head"><strong>${escapeHTML(e.school.schoolName)}</strong><span>Thông báo khoản thu học sinh</span></div><div class="notice-mobile-person"><b>${escapeHTML(e.student.name)}</b><span>${escapeHTML(e.student.className||'')} · ${escapeHTML(e.student.birthDate||'')}</span><small>Mã HS: ${escapeHTML(e.student.code)}</small></div><div class="notice-mobile-total"><span>TỔNG PHẢI NỘP</span><strong>${money(e.total)}</strong><b>Hạn nộp: ${escapeHTML(noticeDateVi(e.deadline))}</b></div><div class="notice-mobile-items">${e.items.map((x,i)=>`<div><span>${i+1}. ${escapeHTML(x.name)}</span><strong>${money(x.amount)}</strong></div>`).join('')}</div>${noticeBrandHtml(e.qr)}<p>${escapeHTML(e.message)}</p></article>`).join('')+(entries.length>6?'<div class="notice-preview-more">… và '+(entries.length-6)+' thông báo khác sẽ được xuất.</div>':'');
+  $('#noticePreviewList').innerHTML=entries.slice(0,6).map(e=>template==='a4'?noticeA4Html(e):`<article class="notice-mobile-preview"><div class="notice-mobile-head"><strong>${escapeHTML(e.school.schoolName)}</strong><span>Thông báo khoản thu học sinh</span></div><div class="notice-mobile-person"><b>${escapeHTML(e.student.name)}</b><span>${escapeHTML(e.student.className||'')} · ${escapeHTML(e.student.birthDate||'')}</span><small>Mã HS: ${escapeHTML(e.student.classStudentCode||e.student.code)}</small></div><div class="notice-mobile-total"><span>TỔNG PHẢI NỘP</span><strong>${money(e.total)}</strong><b>Hạn nộp: ${escapeHTML(noticeDateVi(e.deadline))}</b></div><div class="notice-mobile-items">${e.items.map((x,i)=>`<div><span>${i+1}. ${escapeHTML(x.name)}</span><strong>${money(x.amount)}</strong></div>`).join('')}</div>${noticeBrandHtml(e.qr)}<p>${escapeHTML(e.message)}</p></article>`).join('')+(entries.length>6?'<div class="notice-preview-more">… và '+(entries.length-6)+' thông báo khác sẽ được xuất.</div>':'');
 }
 function noticeCanvasRound(ctx,x,y,w,h,r,fill,stroke){
   const rr=Math.min(r,w/2,h/2);ctx.beginPath();ctx.roundRect(x,y,w,h,rr);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}
@@ -1507,7 +1510,7 @@ async function noticeMobilePng(entry){
   ctx.fillStyle='#f8fcff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';
   const dark='#10335f',teal='#087f78',muted='#61738b',line='#d7eaf5';
   ctx.fillStyle='#e9f7ff';ctx.fillRect(0,0,W,190);ctx.fillStyle=dark;ctx.font='700 44px Arial';ctx.fillText(entry.school.schoolName,70,55);ctx.font='30px Arial';ctx.fillStyle=muted;ctx.fillText('Thông báo khoản thu học sinh',70,113);
-  noticeCanvasRound(ctx,45,215,990,205,30,'#fff','#d9e9f2');ctx.fillStyle=dark;ctx.font='700 40px Arial';ctx.fillText(entry.student.name,105,260);ctx.font='28px Arial';ctx.fillStyle=muted;ctx.fillText(`Lớp ${entry.student.className||'—'}  •  ${entry.student.birthDate||'—'}`,105,320);ctx.fillText(`Mã HS: ${entry.student.code}`,105,360);
+  noticeCanvasRound(ctx,45,215,990,205,30,'#fff','#d9e9f2');ctx.fillStyle=dark;ctx.font='700 40px Arial';ctx.fillText(entry.student.name,105,260);ctx.font='28px Arial';ctx.fillStyle=muted;ctx.fillText(`Lớp ${entry.student.className||'—'}  •  ${entry.student.birthDate||'—'}`,105,320);ctx.fillText(`Mã HS: ${entry.student.classStudentCode||entry.student.code}`,105,360);
   noticeCanvasRound(ctx,45,450,990,230,34,'#e5f8fb');ctx.fillStyle=dark;ctx.font='700 34px Arial';ctx.fillText('TỔNG PHẢI NỘP',105,492);ctx.fillStyle=teal;ctx.font='700 72px Arial';ctx.fillText(money(entry.total),105,545);noticeCanvasRound(ctx,740,500,245,120,24,'#fff0ef');ctx.fillStyle='#cf4944';ctx.font='26px Arial';ctx.fillText('Hạn nộp:',775,525);ctx.font='700 30px Arial';ctx.fillText(noticeDateVi(entry.deadline),775,566);
   const itemY=715,itemH=Math.min(410,115+entry.items.length*65);noticeCanvasRound(ctx,45,itemY,990,itemH,30,'#fff','#d9e9f2');ctx.fillStyle=dark;ctx.font='700 34px Arial';ctx.fillText('Chi tiết khoản thu',85,itemY+30);let y=itemY+90;ctx.font='27px Arial';
   entry.items.slice(0,6).forEach((item,i)=>{ctx.fillStyle='#eaf6fc';ctx.beginPath();ctx.arc(92,y+17,22,0,Math.PI*2);ctx.fill();ctx.fillStyle=dark;ctx.font='700 22px Arial';ctx.textAlign='center';ctx.fillText(String(i+1),92,y+5);ctx.textAlign='left';ctx.font='27px Arial';ctx.fillText(item.name,135,y);ctx.font='700 27px Arial';ctx.textAlign='right';ctx.fillText(money(item.amount),970,y);ctx.textAlign='left';ctx.strokeStyle=line;ctx.beginPath();ctx.moveTo(80,y+52);ctx.lineTo(985,y+52);ctx.stroke();y+=65;});
@@ -1795,7 +1798,7 @@ async function exportClassFeeReport(){
         const isPaid=paidKeys.has(item.id);
         const txn=valid.find(t=>transactionMatchesItem(t,item.id));
         dueItems++;due+=item.amount;if(isPaid){paidItems++;paid+=item.amount;}
-        details.push([className,student.code,student.name,item.name,item.amount,isPaid?'Đã thu':'Chưa thu',isPaid?item.amount:0,isPaid?0:item.amount,txn?.date||'',txn?.ref||'']);
+        details.push([className,student.classStudentCode||'',student.code,student.name,item.name,item.feeCode||item.category||'',item.paymentCode||'',item.amount,isPaid?'Đã thu':'Chưa thu',isPaid?item.amount:0,isPaid?0:item.amount,txn?.date||'',txn?.ref||'']);
       }
     }
     summary.push([className,classStudents.length,dueItems,paidItems,dueItems-paidItems,due,paid,Math.max(0,due-paid),due?paid/due:0]);
@@ -1819,7 +1822,7 @@ async function exportClassFeeReport(){
   zip.folder('xl').folder('worksheets').file('sheet1.xml',sheet1);
   const detailRows=[];
   detailRows.push(excelRow(1,[{v:`CHI TIẾT HỌC SINH – ${label}`,s:1}],28));
-  detailRows.push(excelRow(3,['LỚP','MÃ HỌC SINH','HỌ VÀ TÊN','KHOẢN THU','PHẢI THU (Đ)','TRẠNG THÁI','ĐÃ THU (Đ)','CÒN LẠI (Đ)','NGÀY THU','MÃ GIAO DỊCH'].map(v=>({v,s:2})),28));
+  detailRows.push(excelRow(3,['LỚP','MÃ HS THEO LỚP','MÃ HS GỐC','HỌ VÀ TÊN','KHOẢN THU','MÃ KHOẢN','MÃ THANH TOÁN','PHẢI THU (Đ)','TRẠNG THÁI','ĐÃ THU (Đ)','CÒN LẠI (Đ)','NGÀY THU','MÃ GIAO DỊCH'].map(v=>({v,s:2})),28));
   details.forEach((r,idx)=>detailRows.push(excelRow(idx+4,r.map((v,j)=>({v,t:[4,6,7].includes(j)?'n':'s',s:[4,6,7].includes(j)?3:4})),21)));
   const sheet2=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="3" topLeftCell="A4" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="11" customWidth="1"/><col min="2" max="2" width="17" customWidth="1"/><col min="3" max="3" width="28" customWidth="1"/><col min="4" max="4" width="25" customWidth="1"/><col min="5" max="8" width="16" customWidth="1"/><col min="9" max="9" width="13" customWidth="1"/><col min="10" max="10" width="22" customWidth="1"/></cols><sheetData>${detailRows.join('')}</sheetData><autoFilter ref="A3:J${details.length+3}"/><mergeCells count="1"><mergeCell ref="A1:J1"/></mergeCells></worksheet>`;
   zip.folder('xl').folder('worksheets').file('sheet2.xml',sheet2);
@@ -1832,8 +1835,8 @@ async function exportClassFeeReport(){
 function exportStudents() {
   Promise.all([all('students'),all('transactions')]).then(([items,stored])=>{
     const tx=reconcileTransactions(items,stored),paid=new Set(tx.filter(t=>t.paymentStatus==='valid').flatMap(transactionPaidKeys));
-    const headers=['Mã học sinh','Mã số CĐ / mã ngoài','Họ và tên','Lớp','Giới tính','Ngày sinh','Phân loại HS','Đăng ký khoản khác','Ghi chú','Điện thoại','Số món phải thu','Tổng phải thu','Đã thu','Còn lại'];
-    const lines=items.map(s=>{const fees=studentDueItems(s),due=fees.reduce((a,x)=>a+x.amount,0),paidAmount=fees.filter(x=>paid.has(`${s.code}|${x.id}`)).reduce((a,x)=>a+x.amount,0);return [s.code,s.externalCode||'',s.name,s.className,s.gender||'',s.birthDate||'',s.studentType||'',s.registrationInfo||'',s.note||'',s.phone||'',fees.length,due,paidAmount,Math.max(0,due-paidAmount)].map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',');});
+    const headers=['Mã học sinh gốc','Mã HS theo lớp','Mã số CĐ / mã ngoài','Họ và tên','Lớp','Giới tính','Ngày sinh','Phân loại HS','Đăng ký khoản khác','Ghi chú','Điện thoại','Số món phải thu','Tổng phải thu','Đã thu','Còn lại'];
+    const lines=items.map(s=>{const fees=studentDueItems(s),due=fees.reduce((a,x)=>a+x.amount,0),paidAmount=fees.filter(x=>paid.has(`${s.code}|${x.id}`)).reduce((a,x)=>a+x.amount,0);return [s.code,s.classStudentCode||'',s.externalCode||'',s.name,s.className,s.gender||'',s.birthDate||'',s.studentType||'',s.registrationInfo||'',s.note||'',s.phone||'',fees.length,due,paidAmount,Math.max(0,due-paidAmount)].map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',');});
     download('danh-sach-hoc-sinh-thcs-so-2-hieu-giang.csv','\uFEFF'+headers.join(',')+'\r\n'+lines.join('\r\n'),'text/csv;charset=utf-8');
   });
 }
