@@ -7,7 +7,7 @@
   <meta name="description" content="Quản lý và đối soát từng khoản thu học sinh. Dữ liệu được lưu cục bộ trên thiết bị đang sử dụng.">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; worker-src 'self'; manifest-src 'self'; form-action 'self'">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20261008j">
+  <link rel="stylesheet" href="styles.css?v=20261008k">
   <title>Trường THCS Số 2 Hiếu Giang · Quản lý thu học sinh</title>
 </head>
 <body>
@@ -155,6 +155,46 @@
         <div class="fee-detail-grid" id="feeCategoryCards"><div class="panel empty-state">Nhập danh sách học sinh và báo cáo thu để xem chi tiết.</div></div>
         <article class="panel table-panel fee-breakdown-panel"><div class="panel-header"><div><h2>Chi tiết dịch vụ khác</h2><p>Tách theo nội dung thực tế như gửi xe, nước uống và dịch vụ khác.</p></div><span class="mini-tag" id="serviceTxnCount">0 giao dịch</span></div><div class="table-wrap"><table><thead><tr><th>NỘI DUNG THU</th><th>SỐ GIAO DỊCH</th><th>SỐ HỌC SINH</th><th>SỐ TIỀN ĐÃ THU</th></tr></thead><tbody id="serviceBreakdownTable"><tr><td colspan="4" class="empty-cell">Chưa có giao dịch dịch vụ.</td></tr></tbody></table></div></article>
         <article class="panel table-panel"><div class="panel-header"><div><h2>Giao dịch theo khoản thu</h2><p>Danh sách chi tiết được nhập trên thiết bị này</p></div><div class="filter-pills"><span class="filter-pill">Tất cả <b id="allTxnCount">0</b></span><span class="filter-pill">Khớp <b id="matchedTxnCount">0</b></span><span class="filter-pill">Chưa khớp <b id="unmatchedTxnCount">0</b></span></div></div><div class="table-wrap"><table><thead><tr><th>NGÀY</th><th>MÃ GIAO DỊCH</th><th>KHOẢN THU</th><th>NỘI DUNG</th><th>MÃ HS / HỌC SINH</th><th>SỐ TIỀN</th><th>TRẠNG THÁI</th></tr></thead><tbody id="transactionsTable"><tr><td colspan="7" class="empty-cell">Chưa có báo cáo ngân hàng.</td></tr></tbody></table></div></article>
+
+        <article class="panel cash-session-card">
+          <div class="panel-header"><div><span class="eyebrow">THU NGOÀI BÁO CÁO BIDV</span><h2>Ghi nhận thu qua thủ quỹ / chuyển thẳng cho trường</h2><p>Chọn các món thực tế đã thu, kiểm tra tổng tiền và chỉ đồng bộ vào số thu chung sau khi kế toán/thủ quỹ xác nhận.</p></div><span class="category-badge service">CHỜ XÁC NHẬN</span></div>
+          <div class="cash-session-toolbar">
+            <label class="qr-field"><span>Hình thức thu</span><select id="cashSessionMethod"><option value="cashier">Thu qua thủ quỹ</option><option value="direct_school">Phụ huynh chuyển thẳng cho trường</option></select></label>
+            <label class="qr-field"><span>Lớp</span><select id="cashSessionClass"><option value="">— Chọn lớp —</option></select></label>
+            <label class="qr-field"><span>Tìm học sinh</span><input id="cashSessionSearch" type="search" placeholder="Nhập tên hoặc mã học sinh"></label>
+            <label class="qr-field"><span>Ngày thu</span><input id="cashSessionDate" type="date"></label>
+            <label class="qr-field"><span>Người xác nhận / thủ quỹ</span><input id="cashSessionCashier" maxlength="80" placeholder="Họ và tên"></label>
+          </div>
+          <div class="cash-session-stats">
+            <div><span>Học sinh đã chọn</span><strong id="cashSessionStudentCount">0</strong></div>
+            <div><span>Số món đã chọn</span><strong id="cashSessionItemCount">0</strong></div>
+            <div><span>Tổng theo sổ</span><strong id="cashSessionExpected">0 ₫</strong></div>
+            <div><span>Số tiền thực tế</span><strong id="cashSessionActualLabel">0 ₫</strong></div>
+            <div><span>Chênh lệch</span><strong id="cashSessionDifference">0 ₫</strong></div>
+          </div>
+          <div class="cash-session-table-wrap"><table class="cash-session-table"><thead id="cashSessionHead"><tr><th>STT</th><th>HỌC SINH</th><th>LỚP</th><th>Chọn lớp để bắt đầu</th></tr></thead><tbody id="cashSessionBody"><tr><td colspan="4" class="empty-cell">Chọn lớp để hiển thị danh sách các món chưa thu.</td></tr></tbody></table></div>
+          <div class="cash-session-check">
+            <label class="qr-field"><span>Số tiền thực tế cần đối chiếu</span><input id="cashSessionActual" inputmode="numeric" placeholder="Nhập tổng tiền thủ quỹ / sao kê trực tiếp"></label>
+            <div class="cash-session-status" id="cashSessionStatus">Chưa có khoản được chọn.</div>
+          </div>
+          <div class="receipt-batch-actions cash-session-actions">
+            <span>Chỉ xác nhận khi tổng thực tế khớp đúng tổng các món đã chọn và không trùng khoản đã thu.</span>
+            <button class="button button-outline" id="exportCashSession">↓ Xuất bảng kê phiên</button>
+            <button class="button button-outline" id="clearCashSession">Hủy lựa chọn</button>
+            <button class="button button-primary" id="confirmCashSession" disabled>✓ Xác nhận & đồng bộ</button>
+          </div>
+        </article>
+
+        <article class="panel cash-file-card">
+          <div class="panel-header"><div><h2>Nhập file các món đã thu thủ công</h2><p>Dùng khi kế toán có danh sách thu ngoài BIDV. File có thể chứa Mã HS/Mã theo lớp/Mã số CĐ hoặc Họ tên + Lớp, kèm Khoản thu và Số tiền.</p></div><span class="mini-tag">XLSX · CSV</span></div>
+          <div class="receipt-batch-actions">
+            <span>File chỉ đưa các dòng hợp lệ vào phiên chờ xác nhận; chưa cộng ngay vào số thu chung.</span>
+            <button class="button button-outline" id="downloadManualCollectionTemplate">↓ Tải file mẫu</button>
+            <button class="button button-primary" id="manualCollectionImportButton">⇧ Chọn file đã thu</button>
+          </div>
+          <div class="last-import" id="manualCollectionStatus">Chưa nhập file thu thủ công.</div>
+        </article>
+        <input type="file" id="manualCollectionFileInput" accept=".xlsx,.csv,.tsv,.txt" hidden>
       </section>
 
       <section class="page" id="page-qr">
@@ -331,7 +371,7 @@
   <div class="receipt-print-root" id="receiptPrintRoot" aria-hidden="true"></div>
   <script src="vendor/qrcode.min.js"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=20261008j"></script>
+  <script src="app.js?v=20261008k"></script>
   <script src="insurance.js"></script>
 </body>
 </html>
