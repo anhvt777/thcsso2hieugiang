@@ -108,6 +108,22 @@
             <div class="fee-catalog-list" id="feeCatalogList"><div class="empty-inline">Chưa có khoản thu. Tạo khoản đầu tiên ở biểu mẫu bên trái.</div></div>
           </article>
         </div>
+        <article class="panel bidv-export-panel">
+          <div class="panel-header"><div><span class="eyebrow">BẢNG KÊ BIDV</span><h2>Xuất bảng kê thu hộ</h2><p>Xuất đúng cấu trúc 16 cột của mẫu BIDV để nhập chương trình tạo bảng kê thu hộ. Mỗi món thu của từng học sinh có một Mã khách hàng duy nhất.</p></div><span class="mini-tag">XLSX</span></div>
+          <div class="fee-form-grid">
+            <label class="qr-field"><span>Khoản thu cần xuất</span><select id="bidvExportFee"><option value="">— Chọn khoản thu —</option></select></label>
+            <label class="qr-field"><span>Phạm vi</span><select id="bidvExportScope"><option value="all">Toàn bộ học sinh được phân giao</option><option value="grade">Theo khối</option><option value="class">Theo lớp</option></select></label>
+            <label class="qr-field"><span>Đối tượng</span><select id="bidvExportTarget"><option value="all">Tất cả</option></select></label>
+            <label class="qr-field"><span>Kỳ hóa đơn</span><input id="bidvBillPeriod" maxlength="20" value="2026" placeholder="Ví dụ: 2026"></label>
+            <label class="qr-field"><span>Tiền tố</span><input id="bidvCustomerPrefix" maxlength="8" value="HG2" placeholder="HG2"></label>
+            <label class="qr-field"><span>Cấu trúc Mã khách hàng</span><input id="bidvCustomerTemplate" maxlength="80" value="{PREFIX}{YY}{CLASS}{SEQ}{FEE}" placeholder="{PREFIX}{YY}{CLASS}{SEQ}{FEE}"></label>
+          </div>
+          <div class="mapping-note"><span class="note-icon">i</span><div><strong>Các biến có thể dùng:</strong><p><code>{PREFIX}</code> tiền tố · <code>{YY}</code>/<code>{YYYY}</code> năm · <code>{CLASS}</code> lớp · <code>{SEQ}</code> số thứ tự 01–99 · <code>{HS}</code> mã HS theo lớp · <code>{BASE}</code> mã HS gốc · <code>{CD}</code> Mã số CĐ · <code>{FEE}</code> mã khoản. File BIDV dùng tài khoản định danh nên mã xuất ra chỉ gồm chữ không dấu và số.</p></div></div>
+          <div class="fee-code-preview"><span>Xem trước Mã khách hàng</span><strong id="bidvCustomerPreview">HG2267C201BHTT</strong><small id="bidvCustomerPreviewText">Khuyến nghị: HG2 + năm 2 số + lớp + STT 2 số + mã khoản.</small></div>
+          <label class="check-row"><input type="checkbox" id="bidvOnlyUnpaid" checked><span>Chỉ xuất các khoản chưa thu</span></label>
+          <div class="fee-builder-actions"><button class="button button-outline" id="bidvValidateExport">Kiểm tra mã</button><button class="button button-primary" id="bidvExportXlsx">↓ Xuất XLSX BIDV</button></div>
+          <div class="last-import" id="bidvExportStatus">Chưa kiểm tra dữ liệu xuất.</div>
+        </article>
       </section>
 
       <section class="page" id="page-fees">
