@@ -7,7 +7,7 @@
   <meta name="description" content="Quản lý và đối soát từng khoản thu học sinh. Dữ liệu được lưu cục bộ trên thiết bị đang sử dụng.">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; worker-src 'self'; manifest-src 'self'; form-action 'self'">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20261008b">
   <title>Trường THCS Số 2 Hiếu Giang · Quản lý thu học sinh</title>
 </head>
 <body>
@@ -23,6 +23,7 @@
         <button class="nav-item" data-page="students"><span class="nav-icon">♧</span>Học sinh</button>
         <button class="nav-item" data-page="fees"><span class="nav-icon">▤</span>Khoản thu</button>
         <button class="nav-item" data-page="fee-setup"><span class="nav-icon">＋</span>Thiết lập khoản thu</button>
+        <button class="nav-item" data-page="bidv-export"><span class="nav-icon">⇩</span>Bảng kê BIDV</button>
         <button class="nav-item" data-page="receipts"><span class="nav-icon">▣</span>Phiếu thu / Xác nhận</button>
         <a class="nav-item qr-external-link" href="https://anhvt777.github.io/bidvqrgen/" target="_blank" rel="noopener noreferrer" aria-label="Mở công cụ tạo QR và thông báo nộp tiền trong tab mới"><span class="nav-icon">▦</span>Tạo QR & thông báo <span class="external-link-mark" aria-hidden="true">↗</span></a>
         <button class="nav-item" data-page="imports"><span class="nav-icon">⇧</span>Nhập dữ liệu</button>
@@ -108,6 +109,11 @@
             <div class="fee-catalog-list" id="feeCatalogList"><div class="empty-inline">Chưa có khoản thu. Tạo khoản đầu tiên ở biểu mẫu bên trái.</div></div>
           </article>
         </div>
+
+      </section>
+
+      <section class="page" id="page-bidv-export">
+        <div class="page-heading"><div><span class="eyebrow">BẢNG KÊ NGÂN HÀNG</span><h1>Bảng kê BIDV</h1><p>Tạo mã khách hàng duy nhất theo từng học sinh + món thu và xuất XLSX đúng cấu trúc nhập chương trình thu hộ.</p></div></div>
         <article class="panel bidv-export-panel">
           <div class="panel-header"><div><span class="eyebrow">BẢNG KÊ BIDV</span><h2>Xuất bảng kê thu hộ</h2><p>Xuất đúng cấu trúc 16 cột của mẫu BIDV để nhập chương trình tạo bảng kê thu hộ. Mỗi món thu của từng học sinh có một Mã khách hàng duy nhất.</p></div><span class="mini-tag">XLSX</span></div>
           <div class="fee-form-grid">
@@ -307,7 +313,7 @@
   <div class="receipt-print-root" id="receiptPrintRoot" aria-hidden="true"></div>
   <script src="vendor/qrcode.min.js"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=20261008b"></script>
   <script src="insurance.js"></script>
 </body>
 </html>
