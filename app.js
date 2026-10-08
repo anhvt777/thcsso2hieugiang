@@ -1300,8 +1300,129 @@ function renderFeeCatalog(catalog,students){
     return `<article class="fee-catalog-item"><div><span class="category-badge ${f.category==='service'?'service':''}">${escapeHTML(f.code)}</span><h3>${escapeHTML(f.name)}</h3><p>${money(f.amount)} · ${scope} · ${count} học sinh</p></div><div class="fee-catalog-actions"><button class="button button-outline button-small" data-fee-edit="${f.id}">Sửa</button><button class="button button-danger button-small" data-fee-delete="${f.id}">Xóa</button></div></article>`;
   }).join(''):'<div class="empty-inline">Chưa có khoản thu. Tạo khoản đầu tiên ở biểu mẫu bên trái.</div>';
 }
+function bidvStudentParts(student){
+  const classToken=feeSafeCode(student.className,8);
+  const classCode=String(student.classStudentCode||'').toUpperCase();
+  const m=classCode.match(/^HG2-([A-Z0-9]+)-(\d{2})$/);
+  const seq=m?.[2]||'00';
+  return {classToken:m?.[1]||classToken,seq};
+}
+function bidvCustomerCodeFromTemplate(template,student,feeCode,prefix,period){
+  const {classToken,seq}=bidvStudentParts(student);
+  const yearMatch=String(period||'').match(/(20\d{2})/);
+  const yyyy=yearMatch?.[1]||String(new Date().getFullYear());
+  const yy=yyyy.slice(-2);
+  const vars={
+    PREFIX:feeSafeCode(prefix,8),YY:feeSafeCode(yy,2),YYYY:feeSafeCode(yyyy,4),
+    CLASS:classToken,SEQ:seq,HS:feeSafeCode(student.classStudentCode||student.code,16),
+    BASE:feeSafeCode(student.code,16),CD:feeSafeCode(student.externalCode,20),FEE:feeSafeCode(feeCode,10)
+  };
+  let out=String(template||'{PREFIX}{YY}{CLASS}{SEQ}{FEE}').replace(/\{(PREFIX|YY|YYYY|CLASS|SEQ|HS|BASE|CD|FEE)\}/g,(_,k)=>vars[k]||'');
+  out=feeSafeCode(out,40);
+  return out;
+}
+function bidvName(value,max=120){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').replace(/[^A-Za-z0-9 /\\.,_-]/g,' ').replace(/\s+/g,' ').trim().slice(0,max);}
+function bidvExportScopeStudents(students){
+  const scope=$('#bidvExportScope')?.value||'all',target=$('#bidvExportTarget')?.value||'all';
+  if(scope==='all'||target==='all')return students;
+  if(scope==='grade')return students.filter(s=>gradeOf(s.className)===target);
+  if(scope==='class')return students.filter(s=>s.className===target);
+  return students;
+}
+function populateBidvExportControls(students,catalog){
+  const fee=$('#bidvExportFee');if(!fee)return;
+  const currentFee=fee.value;
+  fee.innerHTML='<option value="">— Chọn khoản thu —</option>'+catalog.sort((a,b)=>a.name.localeCompare(b.name,'vi')).map(f=>`<option value="${escapeHTML(f.id)}">${escapeHTML(f.name)} · ${money(f.amount)} · ${escapeHTML(f.code)}</option>`).join('');
+  if([...fee.options].some(o=>o.value===currentFee))fee.value=currentFee;
+  const scope=$('#bidvExportScope')?.value||'all',target=$('#bidvExportTarget'),currentTarget=target?.value||'all';
+  if(!target)return;
+  let options=[['all','Tất cả']];
+  if(scope==='grade')options=[...new Set(students.map(s=>gradeOf(s.className)).filter(Boolean))].sort((a,b)=>Number(a)-Number(b)).map(x=>[x,`Khối ${x}`]);
+  if(scope==='class')options=[...new Set(students.map(s=>s.className).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'vi',{numeric:true})).map(x=>[x,x]);
+  target.innerHTML=options.map(([v,l])=>`<option value="${escapeHTML(v)}">${escapeHTML(l)}</option>`).join('');
+  if([...target.options].some(o=>o.value===currentTarget))target.value=currentTarget;
+  updateBidvCustomerPreview(students,catalog);
+}
+function updateBidvCustomerPreview(students,catalog){
+  const sample=bidvExportScopeStudents(students)[0]||students[0];
+  const fee=catalog.find(f=>f.id===$('#bidvExportFee')?.value)||catalog[0];
+  const prefix=$('#bidvCustomerPrefix')?.value||'HG2',period=$('#bidvBillPeriod')?.value||String(new Date().getFullYear()),template=$('#bidvCustomerTemplate')?.value||'{PREFIX}{YY}{CLASS}{SEQ}{FEE}';
+  const code=sample&&fee?bidvCustomerCodeFromTemplate(template,sample,fee.code,prefix,period):'—';
+  if($('#bidvCustomerPreview'))$('#bidvCustomerPreview').textContent=code;
+  if($('#bidvCustomerPreviewText'))$('#bidvCustomerPreviewText').textContent=sample&&fee?`${sample.name} · ${sample.className} · ${fee.name}`:'Chọn khoản thu để xem mã mẫu.';
+}
+async function bidvExportRows(validateOnly=false){
+  const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);
+  const fee=catalog.find(f=>f.id===$('#bidvExportFee')?.value);
+  if(!fee)throw new Error('Hãy chọn khoản thu cần xuất.');
+  const period=String($('#bidvBillPeriod')?.value||'').trim();
+  if(!period)throw new Error('Hãy nhập Kỳ hóa đơn.');
+  const template=String($('#bidvCustomerTemplate')?.value||'').trim();
+  if(!template)throw new Error('Hãy nhập cấu trúc Mã khách hàng.');
+  const prefix=String($('#bidvCustomerPrefix')?.value||'').trim();
+  const onlyUnpaid=$('#bidvOnlyUnpaid')?.checked!==false;
+  const scoped=bidvExportScopeStudents(students);
+  const transactions=reconcileTransactions(students,stored);
+  const paidKeys=new Set(transactions.filter(t=>t.paymentStatus==='valid').flatMap(transactionPaidKeys));
+  const rows=[],seen=new Set(),changes=new Map();
+  for(const student of scoped){
+    const item=studentDueItems(student).find(x=>x.catalogId===fee.id);
+    if(!item)continue;
+    const paymentKey=`${student.code}|${item.id}`;
+    if(onlyUnpaid&&paidKeys.has(paymentKey))continue;
+    const customerId=bidvCustomerCodeFromTemplate(template,student,fee.code,prefix,period);
+    if(!customerId)throw new Error(`Không tạo được Mã khách hàng cho ${student.name}.`);
+    if(!/^[A-Z0-9]+$/.test(customerId))throw new Error(`Mã khách hàng ${customerId} có ký tự không hợp lệ.`);
+    if(seen.has(customerId))throw new Error(`Trùng Mã khách hàng: ${customerId}. Hãy đổi cấu trúc mã.`);
+    seen.add(customerId);
+    if(item.paymentCode&&slug(item.paymentCode)!==slug(customerId)&&paidKeys.has(paymentKey))throw new Error(`Khoản ${fee.name} của ${student.name} đã thu với mã ${item.paymentCode}; không thể đổi mã.`);
+    const vaName=bidvName(`${student.name} ${student.className}`,120);
+    rows.push([
+      rows.length+1,customerId,bidvName(student.name,120),vaName,period,num(item.amount),'VND','',
+      '',bidvName(student.className,120),'',
+      bidvName(student.externalCode||'',120),bidvName(student.code||'',120),
+      bidvName(student.classStudentCode||'',120),bidvName(fee.code||'',120),bidvName(student.note||student.studentType||'',120)
+    ]);
+    if(slug(item.paymentCode)!==slug(customerId))changes.set(student.code,customerId);
+  }
+  if(!rows.length)throw new Error('Không có món thu phù hợp để xuất.');
+  if(validateOnly)return {rows,fee,changes};
+  if(changes.size){
+    const updated=students.map(s=>{
+      if(!changes.has(s.code))return s;
+      const dueItems=studentDueItems(s).map(item=>item.catalogId===fee.id?{...item,paymentCode:changes.get(s.code)}:item);
+      return {...s,dueItems,updatedAt:new Date().toISOString()};
+    });
+    await putMany('students',updated);
+  }
+  return {rows,fee,changes};
+}
+async function validateBidvExport(){
+  const out=await bidvExportRows(true);
+  $('#bidvExportStatus').textContent=`Hợp lệ: ${out.rows.length} dòng · ${new Set(out.rows.map(r=>r[1])).size} Mã khách hàng duy nhất · không trùng mã.`;
+  toast(`Đã kiểm tra ${out.rows.length} dòng bảng kê BIDV.`);
+}
+async function exportBidvXlsx(){
+  if(typeof JSZip==='undefined')throw new Error('Thiếu thư viện xuất Excel. Hãy tải lại trang.');
+  const out=await bidvExportRows(false),rows=out.rows;
+  const headers=['STT\nNo.','Mã khách hàng * \nCustomer ID *','Tên khách hàng *\nCustomer name*','Tên tài khoản định danh *\nVirtual account name*','Kỳ hóa đơn *\nBill Period*','Số tiền hóa đơn *\nBill amount','Loại tiền *\nCurrency','Mã hóa đơn \nBill ID ','Số điện thoại\nPhone number','Địa chỉ\nAddress','Email\nEmail','Thông tin bổ sung 1\nAdditional Information 1','Thông tin bổ sung 2\nAdditional Information 2','Thông tin bổ sung 3\nAdditional Information 3','Thông tin bổ sung 4\nAdditional Information 4','Thông tin bổ sung 5\nAdditional Information 5'];
+  const zip=new JSZip();
+  zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
+  zip.folder('_rels').file('.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+  zip.folder('xl').file('workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="MAU THEM MOI LOAI 2" sheetId="1" r:id="rId1"/></sheets></workbook>');
+  zip.folder('xl').folder('_rels').file('workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+  zip.folder('xl').file('styles.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE2F0D9"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1"/></cellXfs></styleSheet>');
+  const xmlRows=[excelRow(1,headers.map(v=>({v,s:1})),44),...rows.map((r,i)=>excelRow(i+2,r.map(v=>({v,t:typeof v==='number'?'n':'s',s:2})),22))];
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="8" customWidth="1"/><col min="2" max="2" width="24" customWidth="1"/><col min="3" max="4" width="28" customWidth="1"/><col min="5" max="7" width="16" customWidth="1"/><col min="8" max="16" width="22" customWidth="1"/></cols><sheetData>${xmlRows.join('')}</sheetData><autoFilter ref="A1:P${rows.length+1}"/></worksheet>`;
+  zip.folder('xl').folder('worksheets').file('sheet1.xml',sheet);
+  const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const safe=feeSafeCode(out.fee.code||out.fee.name,20),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=`BIDV_Bang_ke_thu_ho_${safe}_${new Date().toISOString().slice(0,10)}.xlsx`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1200);
+  $('#bidvExportStatus').textContent=`Đã xuất ${rows.length} dòng · mã KH đã được lưu vào từng món thu để đối soát về sau.`;
+  await refresh();toast(`Đã xuất ${rows.length} dòng bảng kê BIDV.`);
+}
 async function renderFeeSetup(students){
-  const catalog=await getFeeCatalog();renderFeeCatalog(catalog,students);populateFeeTargets(students);updateFeePreview(students);
+  const catalog=await getFeeCatalog();renderFeeCatalog(catalog,students);populateFeeTargets(students);updateFeePreview(students);populateBidvExportControls(students,catalog);
 }
 async function saveFeeAssignment(){
   const students=await all('students');if(!students.length)return toast('Hãy nhập danh sách học sinh trước khi tạo khoản thu.',true);
