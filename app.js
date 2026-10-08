@@ -694,7 +694,7 @@ function studentFromBankIdentity(t,indexes){
 }
 function reconcileTransactions(students, transactions) {
   const byCode=new Map(students.map(s=>[slug(s.code),s]));const byPaymentCode=new Map();
-  students.forEach(student=>studentDueItems(student).forEach(item=>{if(item.paymentCode)byPaymentCode.set(slug(item.paymentCode),{student,item});}));
+  students.forEach(student=>studentDueItems(student).forEach(item=>{if(item.paymentCode)byPaymentCode.set(slug(item.paymentCode),{student,item});if(item.qrAccountNumber)byPaymentCode.set(slug(item.qrAccountNumber),{student,item});}));
   const reportIndexes=buildStudentReportIndexes(students);
   const claimed=new Set();
   return [...transactions].sort((a,b)=>(a.date||a.importedAt||'').localeCompare(b.date||b.importedAt||'')).map(t=>{
@@ -1145,8 +1145,133 @@ async function exportBidvXlsx(){
   $('#bidvExportStatus').textContent=`Đã xuất ${rows.length} dòng · mã KH đã được lưu vào từng món thu để đối soát về sau.`;
   await refresh();toast(`Đã xuất ${rows.length} dòng bảng kê BIDV.`);
 }
+function qrFileText(value,max=120){
+  return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim().slice(0,max);
+}
+function qrFileDate(value){
+  const s=String(value||'').trim();if(!s)return '';
+  const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m)return `${m[3]}/${m[2]}/${m[1]}`;
+  return s;
+}
+function qrFileStudentCode(student,mode){
+  if(mode==='class')return feeSafeCode(student.classStudentCode||student.code,24);
+  return feeSafeCode(student.code,24);
+}
+function qrFileAllEntries(students,catalog,transactions){
+  const paid=new Set(transactions.filter(t=>t.paymentStatus==='valid').flatMap(transactionPaidKeys));
+  return students.flatMap(student=>studentDueItems(student).filter(item=>num(item.amount)>0).map(item=>({
+    student,item,
+    paid:paid.has(`${student.code}|${item.id}`),
+    feeKey:item.catalogId?`catalog:${item.catalogId}`:`source:${item.category}`,
+    feeName:item.name||getFeeLabel(item.category),
+    feeShort:item.shortCode||catalog.find(f=>f.id===item.catalogId)?.shortCode||defaultFeeShortCode(item.category,item.feeCode||item.category)
+  })));
+}
+function populateQrFileControls(students,catalog,transactions=[]){
+  const scopeEl=$('#qrFileScope'),target=$('#qrFileTarget');if(!scopeEl||!target)return;
+  const scope=scopeEl.value||'all',current=target.value||'all';
+  const entries=qrFileAllEntries(students,catalog,transactions);
+  let options=[['all','Tất cả']];
+  if(scope==='fee'){
+    const feeMap=new Map();
+    for(const e of entries)if(!feeMap.has(e.feeKey))feeMap.set(e.feeKey,`${e.feeName} · ${e.feeShort}`);
+    options=[...feeMap.entries()].sort((a,b)=>a[1].localeCompare(b[1],'vi'));
+  }else if(scope==='class'){
+    options=[...new Set(students.map(s=>s.className).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'vi',{numeric:true})).map(x=>[x,x]);
+  }else if(scope==='student'){
+    options=[...students].sort((a,b)=>a.className.localeCompare(b.className,'vi',{numeric:true})||a.name.localeCompare(b.name,'vi')).map(s=>[s.code,`${s.className} · ${s.name} · ${s.classStudentCode||s.code}`]);
+  }
+  target.innerHTML=options.map(([v,l])=>`<option value="${escapeHTML(v)}">${escapeHTML(l)}</option>`).join('');
+  if([...target.options].some(o=>o.value===current))target.value=current;
+  updateQrFilePreview(students,catalog,transactions);
+}
+function qrFileFilteredEntries(students,catalog,transactions){
+  const scope=$('#qrFileScope')?.value||'all',target=$('#qrFileTarget')?.value||'all',onlyUnpaid=$('#qrFileOnlyUnpaid')?.checked!==false;
+  let entries=qrFileAllEntries(students,catalog,transactions);
+  if(onlyUnpaid)entries=entries.filter(e=>!e.paid);
+  if(scope==='fee'&&target!=='all')entries=entries.filter(e=>e.feeKey===target);
+  if(scope==='class'&&target!=='all')entries=entries.filter(e=>e.student.className===target);
+  if(scope==='student'&&target!=='all')entries=entries.filter(e=>e.student.code===target);
+  return entries.sort((a,b)=>String(a.student.className||'').localeCompare(String(b.student.className||''),'vi',{numeric:true,sensitivity:'base'})||String(a.student.name||'').localeCompare(String(b.student.name||''),'vi',{sensitivity:'base'})||String(a.feeName||'').localeCompare(String(b.feeName||''),'vi'));
+}
+function qrFileAccountNumber(prefix,student,item,mode,feeShort){
+  const p=feeSafeCode(prefix,30),studentToken=qrFileStudentCode(student,mode),fee=feeSafeCode(feeShort,2);
+  return feeSafeCode(`${p}${studentToken}${fee}`,50);
+}
+async function updateQrFilePreview(students,catalog,transactions=[]){
+  const entries=qrFileFilteredEntries(students,catalog,transactions),sample=entries[0];
+  if(!sample){$('#qrFileAccountPreview').textContent='—';$('#qrFileRemarkPreview').textContent='Không có món thu phù hợp.';return;}
+  const prefix=$('#qrFilePrefix')?.value||'',period=$('#qrFilePeriod')?.value||'',mode=$('#qrFileStudentCodeMode')?.value||'base';
+  const account=qrFileAccountNumber(prefix,sample.student,sample.item,mode,sample.feeShort);
+  const accountName=qrFileText(`${sample.student.name} ${sample.student.className}`,80);
+  const remark=qrFileText(`${accountName} NOP ${sample.feeName} ${period}`,140);
+  $('#qrFileAccountPreview').textContent=account;
+  $('#qrFileRemarkPreview').textContent=`${accountName} · ${remark}`;
+}
+async function qrFileRows(validateOnly=false){
+  const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);
+  const transactions=reconcileTransactions(students,stored),entries=qrFileFilteredEntries(students,catalog,transactions);
+  if(!entries.length)throw new Error('Không có món thu phù hợp để xuất QR.');
+  const prefix=String($('#qrFilePrefix')?.value||'').trim(),period=String($('#qrFilePeriod')?.value||'').trim(),bank=qrFileText($('#qrFileBank')?.value||'BIDV',20),bankBin=String($('#qrFileBankBin')?.value||'').replace(/\D/g,''),mode=$('#qrFileStudentCodeMode')?.value||'base';
+  if(!prefix)throw new Error('Hãy nhập Mã đầu định danh.');
+  if(!period)throw new Error('Hãy nhập Kỳ thu.');
+  if(!/^\d{6}$/.test(bankBin))throw new Error('BankBin phải gồm đúng 6 chữ số.');
+  const seen=new Set(),rows=[],changes=new Map();
+  for(const e of entries){
+    const accountNumber=qrFileAccountNumber(prefix,e.student,e.item,mode,e.feeShort);
+    if(!accountNumber)throw new Error(`Không tạo được AccountNumber cho ${e.student.name}.`);
+    if(!/^[A-Z0-9]+$/.test(accountNumber))throw new Error(`AccountNumber không hợp lệ: ${accountNumber}`);
+    if(seen.has(accountNumber))throw new Error(`Trùng AccountNumber: ${accountNumber}. Hãy đổi tiền tố hoặc cấu trúc mã.`);
+    seen.add(accountNumber);
+    const accountName=qrFileText(`${e.student.name} ${e.student.className}`,80);
+    const remark=qrFileText(`${accountName} NOP ${e.feeName} ${period}`,140);
+    if(!accountName||!remark)throw new Error(`Thiếu AccountName/Remark của ${e.student.name}.`);
+    rows.push([
+      accountNumber,bank,bankBin,num(e.item.amount),accountName,remark,
+      e.student.className||'',e.student.externalCode||e.student.code||'',qrFileDate(e.student.birthDate),
+      e.feeName||'',e.student.name||''
+    ]);
+    if(slug(e.item.qrAccountNumber)!==slug(accountNumber)){
+      if(!changes.has(e.student.code))changes.set(e.student.code,new Map());
+      changes.get(e.student.code).set(e.item.id,accountNumber);
+    }
+  }
+  if(validateOnly)return {rows,changes};
+  if(changes.size){
+    const updated=students.map(s=>{
+      const m=changes.get(s.code);if(!m)return s;
+      const dueItems=studentDueItems(s).map(item=>m.has(item.id)?{...item,qrAccountNumber:m.get(item.id)}:item);
+      return {...s,dueItems,updatedAt:new Date().toISOString()};
+    });
+    await putMany('students',updated);
+  }
+  return {rows,changes};
+}
+async function validateQrFileExport(){
+  const out=await qrFileRows(true);
+  $('#qrFileStatus').textContent=`Hợp lệ: ${out.rows.length} dòng · ${new Set(out.rows.map(r=>r[0])).size} AccountNumber duy nhất · đúng 11 cột mẫu.`;
+  toast(`Đã kiểm tra ${out.rows.length} dòng file QR.`);
+}
+async function exportQrFileXlsx(){
+  if(typeof JSZip==='undefined')throw new Error('Thiếu thư viện xuất Excel. Hãy tải lại trang.');
+  const out=await qrFileRows(false),rows=out.rows;
+  const headers=['AccountNumber','Bank','BankBin','Amount','AccountName','Remark','Class','StudentID','Ngày sinh','Khoản Thu','Họ tên'];
+  const zip=new JSZip();
+  zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
+  zip.folder('_rels').file('.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+  zip.folder('xl').file('workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>');
+  zip.folder('xl').folder('_rels').file('workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+  zip.folder('xl').file('styles.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="10"/><name val="Calibri"/></font><font><b/><sz val="10"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAF7"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1"/></cellXfs></styleSheet>');
+  const xmlRows=[excelRow(1,headers.map(v=>({v,s:1})),22),...rows.map((r,i)=>excelRow(i+2,r.map((v,j)=>({v,t:j===3?'n':'s',s:2})),20))];
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="3" width="14" customWidth="1"/><col min="4" max="4" width="14" customWidth="1"/><col min="5" max="6" width="40" customWidth="1"/><col min="7" max="7" width="12" customWidth="1"/><col min="8" max="8" width="22" customWidth="1"/><col min="9" max="9" width="14" customWidth="1"/><col min="10" max="11" width="28" customWidth="1"/></cols><sheetData>${xmlRows.join('')}</sheetData><autoFilter ref="A1:K${rows.length+1}"/></worksheet>`;
+  zip.folder('xl').folder('worksheets').file('sheet1.xml',sheet);
+  const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`File_tao_QR_dinh_danh_${new Date().toISOString().slice(0,10)}.xlsx`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1200);
+  $('#qrFileStatus').textContent=`Đã xuất ${rows.length} dòng theo đúng 11 cột mẫu Test 6E.xlsx.`;
+  await refresh();toast(`Đã xuất ${rows.length} dòng tạo QR.`);
+}
 async function renderFeeSetup(students){
-  const catalog=await getFeeCatalog();renderFeeCatalog(catalog,students);populateFeeTargets(students);updateFeePreview(students);populateBidvExportControls(students,catalog);
+  const [catalog,stored]=await Promise.all([getFeeCatalog(),all('transactions')]);const transactions=reconcileTransactions(students,stored);renderFeeCatalog(catalog,students);populateFeeTargets(students);updateFeePreview(students);populateBidvExportControls(students,catalog);populateQrFileControls(students,catalog,transactions);
 }
 async function saveFeeAssignment(){
   const students=await all('students');if(!students.length)return toast('Hãy nhập danh sách học sinh trước khi tạo khoản thu.',true);
@@ -1724,6 +1849,13 @@ function wire() {
   ['bidvBillPeriod','bidvCustomerPrefix','bidvCustomerTemplate'].forEach(id=>$(`#${id}`).addEventListener('input',async()=>{const [students,catalog]=await Promise.all([all('students'),getFeeCatalog()]);updateBidvCustomerPreview(students,catalog);}));
   $('#bidvValidateExport').onclick=()=>validateBidvExport().catch(e=>{console.error(e);$('#bidvExportStatus').textContent=e.message||'Dữ liệu chưa hợp lệ.';toast(e.message||'Dữ liệu chưa hợp lệ.',true);});
   $('#bidvExportXlsx').onclick=()=>exportBidvXlsx().catch(e=>{console.error(e);$('#bidvExportStatus').textContent=e.message||'Không xuất được bảng kê.';toast(e.message||'Không xuất được bảng kê.',true);});
+  $('#qrFileScope').addEventListener('change',async()=>{const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);populateQrFileControls(students,catalog,reconcileTransactions(students,stored));});
+  $('#qrFileTarget').addEventListener('change',async()=>{const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);updateQrFilePreview(students,catalog,reconcileTransactions(students,stored));});
+  ['qrFilePrefix','qrFilePeriod','qrFileBank','qrFileBankBin'].forEach(id=>$(`#${id}`).addEventListener('input',async()=>{const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);updateQrFilePreview(students,catalog,reconcileTransactions(students,stored));}));
+  $('#qrFileStudentCodeMode').addEventListener('change',async()=>{const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);updateQrFilePreview(students,catalog,reconcileTransactions(students,stored));});
+  $('#qrFileOnlyUnpaid').addEventListener('change',async()=>{const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);updateQrFilePreview(students,catalog,reconcileTransactions(students,stored));});
+  $('#qrFileValidate').onclick=()=>validateQrFileExport().catch(e=>{console.error(e);$('#qrFileStatus').textContent=e.message||'File QR chưa hợp lệ.';toast(e.message||'File QR chưa hợp lệ.',true);});
+  $('#qrFileExport').onclick=()=>exportQrFileXlsx().catch(e=>{console.error(e);$('#qrFileStatus').textContent=e.message||'Không xuất được file QR.';toast(e.message||'Không xuất được file QR.',true);});
   $('#saveFeeAssignment').onclick=()=>saveFeeAssignment().catch(e=>{console.error(e);toast(e.message||'Không tạo được khoản thu.',true);});
   $('#newFeeButton').onclick=async()=>resetFeeForm(await all('students'));$('#cancelFeeEdit').onclick=async()=>resetFeeForm(await all('students'));
   $('#feeCatalogList').addEventListener('click',e=>{const edit=e.target.closest('[data-fee-edit]'),del=e.target.closest('[data-fee-delete]');if(edit)editFee(edit.dataset.feeEdit);if(del)deleteFee(del.dataset.feeDelete);});
