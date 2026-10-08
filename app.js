@@ -1994,6 +1994,11 @@ function wire() {
   $('#feeScope').addEventListener('change',async()=>populateFeeTargets(await all('students')));
   $('#feeTargets').addEventListener('change',async()=>{const students=await all('students');const chosen=feeTargetStudents(students,$('#feeScope').value,selectedValues($('#feeTargets')));$('#feeTargetSummary').textContent=`${chosen.length} học sinh được chọn`;});
   ['feePrefix','feeCode'].forEach(id=>$(`#${id}`).addEventListener('input',async()=>updateFeePreview(await all('students'))));
+  $('#bidvExportScope').addEventListener('change',async()=>{const [students,catalog]=await Promise.all([all('students'),getFeeCatalog()]);populateBidvExportControls(students,catalog);});
+  ['bidvExportFee','bidvExportTarget'].forEach(id=>$(`#${id}`).addEventListener('change',async()=>{const [students,catalog]=await Promise.all([all('students'),getFeeCatalog()]);updateBidvCustomerPreview(students,catalog);}));
+  ['bidvBillPeriod','bidvCustomerPrefix','bidvCustomerTemplate'].forEach(id=>$(`#${id}`).addEventListener('input',async()=>{const [students,catalog]=await Promise.all([all('students'),getFeeCatalog()]);updateBidvCustomerPreview(students,catalog);}));
+  $('#bidvValidateExport').onclick=()=>validateBidvExport().catch(e=>{console.error(e);$('#bidvExportStatus').textContent=e.message||'Dữ liệu chưa hợp lệ.';toast(e.message||'Dữ liệu chưa hợp lệ.',true);});
+  $('#bidvExportXlsx').onclick=()=>exportBidvXlsx().catch(e=>{console.error(e);$('#bidvExportStatus').textContent=e.message||'Không xuất được bảng kê.';toast(e.message||'Không xuất được bảng kê.',true);});
   $('#saveFeeAssignment').onclick=()=>saveFeeAssignment().catch(e=>{console.error(e);toast(e.message||'Không tạo được khoản thu.',true);});
   $('#newFeeButton').onclick=async()=>resetFeeForm(await all('students'));$('#cancelFeeEdit').onclick=async()=>resetFeeForm(await all('students'));
   $('#feeCatalogList').addEventListener('click',e=>{const edit=e.target.closest('[data-fee-edit]'),del=e.target.closest('[data-fee-delete]');if(edit)editFee(edit.dataset.feeEdit);if(del)deleteFee(del.dataset.feeDelete);});
