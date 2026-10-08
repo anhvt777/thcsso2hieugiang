@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'so-thu-hoc-sinh-hieugiang-so2-shell-';
-const CACHE_NAME = CACHE_PREFIX + 'v18-fee-shortcode-sort';
+const CACHE_NAME = CACHE_PREFIX + 'v19-stable-student-id';
 const SHELL = ['./', './index.html', './styles.css', './app.js', './insurance.js', './manifest.json', './icon.svg', './vendor/qrcode.min.js', './vendor/jszip.min.js'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)));
