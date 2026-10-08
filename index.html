@@ -7,7 +7,7 @@
   <meta name="description" content="Quản lý và đối soát từng khoản thu học sinh. Dữ liệu được lưu cục bộ trên thiết bị đang sử dụng.">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; worker-src 'self'; manifest-src 'self'; form-action 'self'">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20261008c">
+  <link rel="stylesheet" href="styles.css?v=20261008d">
   <title>Trường THCS Số 2 Hiếu Giang · Quản lý thu học sinh</title>
 </head>
 <body>
@@ -91,6 +91,7 @@
             <div class="fee-form-grid">
               <label class="qr-field"><span>Tên khoản thu</span><input id="feeName" maxlength="80" placeholder="Ví dụ: Bảo hiểm thân thể"></label>
               <label class="qr-field"><span>Mã khoản</span><input id="feeCode" maxlength="12" placeholder="Ví dụ: BHTT"></label>
+              <label class="qr-field"><span>Ký hiệu khoản thu (2 ký tự)</span><input id="feeShortCode" maxlength="2" list="feeShortCodeOptions" placeholder="TT"><datalist id="feeShortCodeOptions"><option value="YT">Bảo hiểm y tế</option><option value="TT">Bảo hiểm thân thể</option><option value="DV">Dịch vụ</option><option value="KH">Khoản khác</option></datalist></label>
               <label class="qr-field"><span>Số tiền / học sinh</span><input id="feeAmount" inputmode="numeric" placeholder="Ví dụ: 150000"></label>
               <label class="qr-field"><span>Nhóm khoản</span><select id="feeCategory"><option value="service">Khoản thu / dịch vụ khác</option><option value="insurance">Bảo hiểm y tế (BHYT)</option><option value="mandatory">Bảo hiểm thân thể (BHTT)</option><option value="other">Khoản khác</option></select></label>
               <label class="qr-field"><span>Tiền tố mã KH</span><input id="feePrefix" maxlength="8" value="HG2" placeholder="HG2"></label>
@@ -101,7 +102,7 @@
               <select id="feeTargets" multiple size="7" aria-label="Chọn đối tượng phân giao"></select>
               <small>Giữ Ctrl/Cmd để chọn nhiều khối, lớp hoặc học sinh. Với “Toàn trường” không cần chọn.</small>
             </div>
-            <div class="fee-code-preview"><span>Mẫu mã khách hàng</span><strong id="feeCodePreview">Mã HS theo lớp + Mã khoản</strong><small id="feeCodePreviewExample">Ví dụ sẽ hiển thị sau khi có danh sách học sinh.</small></div>
+            <div class="fee-code-preview"><span>Mẫu mã khách hàng</span><strong id="feeCodePreview">Mã HS theo lớp + ký hiệu 2 ký tự</strong><small id="feeCodePreviewExample">Ví dụ sẽ hiển thị sau khi có danh sách học sinh.</small></div>
             <div class="fee-builder-actions"><button class="button button-outline" id="cancelFeeEdit" hidden>Hủy</button><button class="button button-primary" id="saveFeeAssignment">Tạo & phân giao</button></div>
           </article>
           <article class="panel fee-catalog-panel">
@@ -313,7 +314,7 @@
   <div class="receipt-print-root" id="receiptPrintRoot" aria-hidden="true"></div>
   <script src="vendor/qrcode.min.js"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=20261008c"></script>
+  <script src="app.js?v=20261008d"></script>
   <script src="insurance.js"></script>
 </body>
 </html>
