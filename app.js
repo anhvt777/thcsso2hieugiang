@@ -316,6 +316,29 @@ function uniqueStudentIndex(items,keyFn){
   for(const item of items){const key=keyFn(item);if(!key)continue;if(out.has(key)){out.delete(key);duplicates.add(key);}else if(!duplicates.has(key))out.set(key,item);}
   return out;
 }
+function studentFallbackIdentity(s){
+  const name=slug(s?.name||''),birth=String(s?.birthDate||''),gender=slug(s?.gender||''),cls=slug(s?.className||'');
+  if(name&&birth)return `nb|${name}|${birth}`;
+  if(name&&gender&&cls)return `ngc|${name}|${gender}|${cls}`;
+  return '';
+}
+function compareStudentImportRows(a,b,map){
+  const av={
+    className:cell(a,map,'className'),name:cell(a,map,'name'),
+    birth:normalizeDate(cell(a,map,'birthDate')),gender:cell(a,map,'gender'),
+    external:cell(a,map,'externalCode')
+  };
+  const bv={
+    className:cell(b,map,'className'),name:cell(b,map,'name'),
+    birth:normalizeDate(cell(b,map,'birthDate')),gender:cell(b,map,'gender'),
+    external:cell(b,map,'externalCode')
+  };
+  return String(av.className||'').localeCompare(String(bv.className||''),'vi',{numeric:true,sensitivity:'base'})
+    ||String(av.name||'').localeCompare(String(bv.name||''),'vi',{sensitivity:'base'})
+    ||String(av.birth||'').localeCompare(String(bv.birth||''))
+    ||String(av.gender||'').localeCompare(String(bv.gender||''))
+    ||String(av.external||'').localeCompare(String(bv.external||''));
+}
 function createStudentCodeAllocator(existingList){
   const used=new Set(existingList.map(s=>slug(s.code)).filter(Boolean));let max=0;
   existingList.forEach(s=>{const m=String(s.code||'').toUpperCase().match(/^HG2-(\d+)$/);if(m)max=Math.max(max,Number(m[1])||0);});
@@ -398,13 +421,15 @@ async function confirmImport() {
         const existingList=await all('students');
         const existing=new Map(existingList.map(s=>[slug(s.code),s]));
         const byIdentity=uniqueStudentIndex(existingList,studentIdentity);
+        const byFallbackIdentity=uniqueStudentIndex(existingList,studentFallbackIdentity);
         const byExternal=uniqueStudentIndex(existingList,s=>slug(String(s.externalCode||'').replace(/\s+/g,'')));
         const allocator=createStudentCodeAllocator(existingList);
         const classAllocator=createClassStudentCodeAllocator(existingList);
         dataRows.forEach(row=>allocator.reserve(cell(row,map,'code')));
         const feeMapped=['due','dueInsurance','dueMandatory','dueService','dueParking','dueWater'].some(field=>Number(map[field])>=0);
         const merged=new Map(),warnings=[];const tempToDelete=new Set();
-        dataRows.forEach((row,index)=>{
+        const orderedRows=[...dataRows].sort((a,b)=>compareStudentImportRows(a,b,map));
+        orderedRows.forEach((row,index)=>{
           let code=cell(row,map,'code'),name=cell(row,map,'name'),className=cell(row,map,'className');
           const profile={
             externalCode:cell(row,map,'externalCode'),
@@ -415,11 +440,13 @@ async function confirmImport() {
             note:cell(row,map,'note')
           };
           if(!code&&!name&&!className&&!Object.values(profile).some(Boolean))return;
-          const identity=studentIdentity({name,birthDate:profile.birthDate,gender:profile.gender,externalCode:profile.externalCode});
+          const candidate={name,className,birthDate:profile.birthDate,gender:profile.gender,externalCode:profile.externalCode};
+          const identity=studentIdentity(candidate),fallbackIdentity=studentFallbackIdentity(candidate);
           const externalKey=slug(String(profile.externalCode||'').replace(/\s+/g,''));
           let old=code?existing.get(slug(code)):null;
           if(!old&&externalKey)old=byExternal.get(externalKey)||null;
           if(!old&&identity)old=byIdentity.get(identity)||null;
+          if(!old&&fallbackIdentity)old=byFallbackIdentity.get(fallbackIdentity)||null;
           if(!code&&old?.code&&!String(old.code).startsWith('TMP-'))code=old.code;
           if(!code)code=allocator.next();
           if(old&&old.code!==code&&String(old.code).startsWith('TMP-'))tempToDelete.add(old.code);
@@ -452,6 +479,8 @@ async function confirmImport() {
             dueItems:feeMapped?fees.dueItems:(Array.isArray(prior.dueItems)?prior.dueItems:[]),
             dueByCategory:feeMapped?fees.dueByCategory:(prior.dueByCategory||{insurance:0,mandatory:0,service:0,other:0}),
             hasFeeBreakdown:feeMapped?fees.hasFeeBreakdown:!!prior.hasFeeBreakdown,
+            identityKey:studentIdentity({name:choose(name,prior.name),className:effectiveClass,birthDate:choose(profile.birthDate,prior.birthDate),gender:choose(profile.gender,prior.gender),externalCode:choose(profile.externalCode,prior.externalCode)}),
+            identityLockedAt:prior.identityLockedAt||now,
             updatedAt:now
           };
           next.dataWarnings=studentWarnings(next,conflicts);
@@ -459,6 +488,7 @@ async function confirmImport() {
           existing.set(key,next);
           if(externalKey)byExternal.set(externalKey,next);
           const nextIdentity=studentIdentity(next);if(nextIdentity)byIdentity.set(nextIdentity,next);
+          const nextFallback=studentFallbackIdentity(next);if(nextFallback)byFallbackIdentity.set(nextFallback,next);
         });
         for(const oldCode of tempToDelete)await request('students','delete',oldCode);
         items=[...merged.values()];
