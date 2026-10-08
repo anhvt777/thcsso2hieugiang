@@ -103,3 +103,26 @@
 @media(max-width:1100px){.ib-layout{grid-template-columns:1fr}.ib-preview-panel{max-width:800px;width:100%}.ib-preview-image{padding:8px}}
 @media(max-width:600px){.ib-controls{padding:18px}.ib-fields{grid-template-columns:1fr}.ib-preview-panel{padding:12px}.ib-preview-image{padding:0}.ib-preview-panel .panel-header{gap:10px}.ib-actions .button{width:100%}}
 .ib-actions [hidden]{display:none!important}.ib-controls select[multiple]{height:150px;padding:8px}
+
+
+.cash-session-card{padding:19px;margin-top:18px;margin-bottom:16px;border-color:#cfe5df;background:linear-gradient(180deg,#fff,#fbfffe)}
+.cash-session-toolbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.cash-session-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin-top:14px}
+.cash-session-stats>div{padding:11px 12px;border-radius:10px;background:#eef8f5;border:1px solid #d7e8e3}
+.cash-session-stats span,.cash-session-stats strong{display:block}.cash-session-stats span{font-size:9px;color:var(--muted)}.cash-session-stats strong{font-size:16px;color:#136f65;margin-top:4px}
+.cash-session-table-wrap{overflow:auto;margin-top:14px;border:1px solid var(--line);border-radius:11px;background:#fff;max-height:520px}
+.cash-session-table{min-width:900px;width:100%;border-collapse:separate;border-spacing:0}
+.cash-session-table th{position:sticky;top:0;z-index:2;background:#e9f5f2;white-space:nowrap}
+.cash-session-table th small{display:block;font-size:8px;font-weight:500;color:var(--muted);margin-top:2px}
+.cash-session-table td,.cash-session-table th{padding:9px 10px;border-bottom:1px solid #e8efed;text-align:left;font-size:10px}
+.cash-check-cell{text-align:center!important;min-width:115px}.cash-check-cell label{display:grid;justify-items:center;gap:4px;cursor:pointer}
+.cash-check-cell input{width:19px;height:19px;accent-color:#078778}.cash-check-cell span{font-size:8px;color:var(--muted)}
+.cash-paid{text-align:center!important}.cash-paid span{display:inline-block;padding:5px 7px;border-radius:999px;font-size:8px;font-weight:700}
+.cash-paid-bank span{background:#e5f1ff;color:#245a8d}.cash-paid-cash span{background:#e7f7ef;color:#21734f}
+.cash-na{text-align:center!important;color:#a2aaa8}.cash-row-total{text-align:right!important;font-weight:700;color:#176f64}
+.cash-session-check{display:grid;grid-template-columns:minmax(260px,.55fr) 1fr;gap:14px;align-items:end;margin-top:13px}
+.cash-session-status{padding:11px 13px;border-radius:10px;background:#f5f8f7;border:1px solid #dde7e4;font-size:10px;color:#60706d;min-height:18px}
+.cash-session-actions{margin-top:12px}.cash-diff-ok{color:#16734f!important}.cash-diff-bad{color:#b4433e!important}.success-text{color:#16734f}.danger-text{color:#b4433e}
+.cash-file-card{padding:19px;margin-top:16px;margin-bottom:10px}
+@media(max-width:1100px){.cash-session-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.cash-session-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.cash-session-toolbar{grid-template-columns:1fr}.cash-session-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.cash-session-check{grid-template-columns:1fr}}
