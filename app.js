@@ -544,8 +544,9 @@ async function confirmImport() {
     }
     const incoming=[...uniqueById.values()];
     const existing=await all('transactions');
-    const existingBank=existing.filter(t=>t.sourceType!=='cash');
-    const manualCash=existing.filter(t=>t.sourceType==='cash');
+    const isManualCollection=t=>['cash','direct_school','manual_collection'].includes(t.sourceType);
+    const existingBank=existing.filter(t=>!isManualCollection(t));
+    const manualCash=existing.filter(isManualCollection);
     const oldById=new Map(existingBank.map(t=>[t.id,t]));
     let added=0,updated=0,changed=0;
     for(const t of incoming){
@@ -558,7 +559,7 @@ async function confirmImport() {
     // putMany ghi đè đúng record có cùng id nhưng không đụng đến record của file/món thu khác.
     await putMany('transactions',incoming);
     const after=await all('transactions');
-    const bankTotal=after.filter(t=>t.sourceType!=='cash').length;
+    const bankTotal=after.filter(t=>!['cash','direct_school','manual_collection'].includes(t.sourceType)).length;
     const feeLabels=[...new Set(incoming.map(t=>String(t.serviceLevel2||t.feeDetail||getFeeLabel(t.feeCategory)||'').trim()).filter(Boolean))];
     const feeText=feeLabels.length===1?feeLabels[0]:(feeLabels.length>1?`${feeLabels.length} nhóm khoản thu`:'báo cáo thu');
     summary = {
@@ -709,14 +710,14 @@ function reconcileTransactions(students, transactions) {
     if(!isSuccessfulBankStatus(t.bankStatus))return {...t,studentCode:student?.code||'',studentName:student?.name||t.reportCustomerName||'',matched:false,paymentStatus:'bank_not_successful',feeCategory:alias?.item.category||transactionCategory(t)};
     if(!student)return {...t,studentCode:'',studentName:t.reportCustomerName||'',matched:false,paymentStatus:reportedCode?'unmatched':'missing_code'};
     const studentItems=studentDueItems(student), category=alias?.item.category||transactionCategory(t), amount=num(t.amount);
-    if(t.sourceType==='cash'&&t.manualDueItemId){
+    if(['cash','direct_school','manual_collection'].includes(t.sourceType)&&t.manualDueItemId){
       const item=studentItems.find(x=>x.id===t.manualDueItemId);
       if(!item)return {...t,studentCode:student.code,studentName:student.name,matched:false,paymentStatus:'no_due',feeCategory:category};
       if(item.amount!==amount)return {...t,studentCode:student.code,studentName:student.name,matched:false,paymentStatus:'amount_mismatch',feeCategory:item.category};
       const key=`${student.code}|${item.id}`;
       if(claimed.has(key))return {...t,studentCode:student.code,studentName:student.name,matched:false,paymentStatus:'duplicate',feeCategory:item.category};
       claimed.add(key);
-      return {...t,studentCode:student.code,studentName:student.name,matched:true,paymentStatus:'valid',feeCategory:item.category,feeDetail:item.name,matchedDueItem:item.name,matchedDueItemId:item.id,matchedDueItemIds:[item.id],paymentChannel:'cash'};
+      return {...t,studentCode:student.code,studentName:student.name,matched:true,paymentStatus:'valid',feeCategory:item.category,feeDetail:item.name,matchedDueItem:item.name,matchedDueItemId:item.id,matchedDueItemIds:[item.id],paymentChannel:t.paymentChannel||'cash'};
     }
     if(!alias){
       const bundle=noticeBundleForTransaction(t,student);
@@ -1324,6 +1325,172 @@ async function openStudentProfile(code){
   $('#studentProfileBackdrop').classList.add('open');
 }
 function closeStudentProfile(){$('#studentProfileBackdrop').classList.remove('open');}
+
+async function getCashSessionDraft(){
+  const stored=await request('meta','get','cashSessionDraft');
+  return stored||{key:'cashSessionDraft',sessionId:`CS-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(Date.now()).slice(-5)}`,className:'',date:new Date().toISOString().slice(0,10),cashier:'',method:'cashier',actual:0,selections:[],updatedAt:new Date().toISOString()};
+}
+async function saveCashSessionDraft(draft){
+  draft.key='cashSessionDraft';draft.updatedAt=new Date().toISOString();
+  await request('meta','put',draft);return draft;
+}
+function cashSessionKey(studentCode,itemId){return `${studentCode}|${itemId}`;}
+function cashSessionSelectionMap(draft){return new Map((draft?.selections||[]).map(x=>[cashSessionKey(x.studentCode,x.itemId),x]));}
+function confirmedPaymentMap(transactions){
+  const map=new Map();
+  transactions.filter(t=>t.paymentStatus==='valid').forEach(t=>transactionMatchedItemIds(t).forEach(id=>map.set(cashSessionKey(t.studentCode,id),t)));
+  return map;
+}
+function parseMoneyInput(value){return num(String(value||'').replace(/[^0-9]/g,''));}
+function manualFeeKey(item){return item.catalogId?`catalog:${item.catalogId}`:`${item.category}:${slug(item.name)}`;}
+async function renderCashSession(students,transactions){
+  const classEl=$('#cashSessionClass');if(!classEl)return;
+  const draft=await getCashSessionDraft(),paidMap=confirmedPaymentMap(transactions);
+  const currentClass=draft.className||classEl.value||'';
+  const classes=[...new Set(students.map(s=>s.className).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'vi',{numeric:true}));
+  classEl.innerHTML='<option value="">— Chọn lớp —</option>'+classes.map(v=>`<option value="${escapeHTML(v)}">${escapeHTML(v)}</option>`).join('');
+  if(classes.includes(currentClass))classEl.value=currentClass;
+  $('#cashSessionDate').value=draft.date||new Date().toISOString().slice(0,10);
+  $('#cashSessionCashier').value=draft.cashier||'';
+  $('#cashSessionMethod').value=draft.method||'cashier';
+  $('#cashSessionActual').value=draft.actual?new Intl.NumberFormat('vi-VN').format(draft.actual):'';
+  const chosenClass=classEl.value,search=slug($('#cashSessionSearch')?.value||'');
+  if(!chosenClass){
+    $('#cashSessionHead').innerHTML='<tr><th>STT</th><th>HỌC SINH</th><th>LỚP</th><th>Chọn lớp để bắt đầu</th></tr>';
+    $('#cashSessionBody').innerHTML='<tr><td colspan="4" class="empty-cell">Chọn lớp để hiển thị danh sách các món chưa thu.</td></tr>';
+    updateCashSessionTotals(draft,students,transactions);return;
+  }
+  const classStudents=students.filter(s=>s.className===chosenClass).filter(s=>!search||slug(`${s.name} ${s.code} ${s.classStudentCode||''} ${s.externalCode||''}`).includes(search)).sort((a,b)=>a.name.localeCompare(b.name,'vi'));
+  const feeMap=new Map();
+  classStudents.forEach(s=>studentDueItems(s).forEach(item=>{const k=manualFeeKey(item);if(!feeMap.has(k))feeMap.set(k,item);}));
+  const feeEntries=[...feeMap.entries()].sort((a,b)=>a[1].name.localeCompare(b[1].name,'vi'));
+  $('#cashSessionHead').innerHTML='<tr><th>STT</th><th>HỌC SINH</th><th>MÃ HS</th>'+feeEntries.map(([,item])=>`<th>${escapeHTML(item.name)}<small>${money(item.amount)}</small></th>`).join('')+'<th>TỔNG CHỌN</th></tr>';
+  const selectedMap=cashSessionSelectionMap(draft);
+  $('#cashSessionBody').innerHTML=classStudents.length?classStudents.map((student,index)=>{
+    const items=studentDueItems(student),byFee=new Map(items.map(item=>[manualFeeKey(item),item]));let selectedAmount=0;
+    const cells=feeEntries.map(([feeKey])=>{
+      const item=byFee.get(feeKey);if(!item)return '<td class="cash-na">—</td>';
+      const key=cashSessionKey(student.code,item.id),paid=paidMap.get(key),pending=selectedMap.has(key);
+      if(paid){
+        const label=paid.paymentChannel==='cash'?'Đã TM':paid.paymentChannel==='direct_school'?'Đã chuyển trường':'Đã CK';
+        return `<td class="cash-paid ${paid.paymentChannel==='cash'?'cash-paid-cash':'cash-paid-bank'}"><span>${label}</span></td>`;
+      }
+      if(pending)selectedAmount+=item.amount;
+      return `<td class="cash-check-cell"><label><input type="checkbox" class="cash-session-check-item" data-student="${escapeHTML(student.code)}" data-item="${escapeHTML(item.id)}" ${pending?'checked':''}><span>${pending?'Đang chọn':'Chưa thu'}</span></label></td>`;
+    }).join('');
+    return `<tr><td>${index+1}</td><td><strong>${escapeHTML(student.name)}</strong></td><td>${escapeHTML(student.classStudentCode||student.code)}</td>${cells}<td class="cash-row-total">${money(selectedAmount)}</td></tr>`;
+  }).join(''):`<tr><td colspan="${4+feeEntries.length}" class="empty-cell">Không có học sinh phù hợp.</td></tr>`;
+  updateCashSessionTotals(draft,students,transactions);
+}
+function cashSessionDraftStats(draft,students,transactions){
+  const paidMap=confirmedPaymentMap(transactions),byStudent=new Map(students.map(s=>[s.code,s]));
+  let amount=0;const studentSet=new Set(),validSelections=[],conflicts=[];
+  for(const sel of draft.selections||[]){
+    const student=byStudent.get(sel.studentCode),item=student?studentDueItems(student).find(x=>x.id===sel.itemId):null;
+    if(!student||!item)continue;
+    const key=cashSessionKey(student.code,item.id),paid=paidMap.get(key);
+    if(paid){conflicts.push({student,item,paid});continue;}
+    validSelections.push({...sel,student,item});studentSet.add(student.code);amount+=item.amount;
+  }
+  return {amount,studentCount:studentSet.size,itemCount:validSelections.length,validSelections,conflicts};
+}
+function updateCashSessionTotals(draft,students,transactions){
+  const stats=cashSessionDraftStats(draft,students,transactions),actual=parseMoneyInput($('#cashSessionActual')?.value||draft.actual||0),diff=actual-stats.amount;
+  $('#cashSessionStudentCount').textContent=stats.studentCount;$('#cashSessionItemCount').textContent=stats.itemCount;$('#cashSessionExpected').textContent=money(stats.amount);$('#cashSessionActualLabel').textContent=money(actual);$('#cashSessionDifference').textContent=money(diff);
+  $('#cashSessionDifference').classList.toggle('cash-diff-ok',stats.itemCount>0&&diff===0);$('#cashSessionDifference').classList.toggle('cash-diff-bad',diff!==0);
+  const hasCashier=!!String($('#cashSessionCashier')?.value||draft.cashier||'').trim(),hasDate=!!($('#cashSessionDate')?.value||draft.date);
+  const canConfirm=stats.itemCount>0&&actual===stats.amount&&stats.conflicts.length===0&&hasCashier&&hasDate;$('#confirmCashSession').disabled=!canConfirm;
+  const status=$('#cashSessionStatus');
+  if(stats.conflicts.length)status.innerHTML=`<strong class="danger-text">Có ${stats.conflicts.length} khoản đã phát sinh thanh toán khác. Hãy bỏ chọn trước khi xác nhận.</strong>`;
+  else if(!stats.itemCount)status.textContent='Chưa có khoản được chọn.';
+  else if(!hasCashier)status.textContent='Hãy nhập người xác nhận / thủ quỹ.';
+  else if(actual!==stats.amount)status.innerHTML=`Theo sổ <strong>${money(stats.amount)}</strong> · thực tế <strong>${money(actual)}</strong> · chênh lệch <strong>${money(diff)}</strong>.`;
+  else status.innerHTML=`<strong class="success-text">KHỚP · Có thể xác nhận và đồng bộ ${money(stats.amount)}.</strong>`;
+  return stats;
+}
+async function toggleCashSessionSelection(studentCode,itemId,checked){
+  const draft=await getCashSessionDraft(),key=cashSessionKey(studentCode,itemId),map=cashSessionSelectionMap(draft);
+  if(checked)map.set(key,{studentCode,itemId,selectedAt:new Date().toISOString()});else map.delete(key);
+  draft.selections=[...map.values()];draft.className=$('#cashSessionClass').value||draft.className;draft.date=$('#cashSessionDate').value||draft.date;draft.cashier=$('#cashSessionCashier').value.trim();draft.method=$('#cashSessionMethod').value;draft.actual=parseMoneyInput($('#cashSessionActual').value);
+  await saveCashSessionDraft(draft);const [students,stored]=await Promise.all([all('students'),all('transactions')]);await renderCashSession(students,reconcileTransactions(students,stored));
+}
+async function clearCashSession(){
+  const draft=await getCashSessionDraft();draft.selections=[];draft.actual=0;draft.sessionId=`CS-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(Date.now()).slice(-5)}`;
+  await saveCashSessionDraft(draft);$('#cashSessionActual').value='';const [students,stored]=await Promise.all([all('students'),all('transactions')]);await renderCashSession(students,reconcileTransactions(students,stored));toast('Đã xóa các lựa chọn trong phiên thu thủ công.');
+}
+async function exportCashSession(){
+  const [students,stored]=await Promise.all([all('students'),all('transactions')]),tx=reconcileTransactions(students,stored),draft=await getCashSessionDraft(),stats=cashSessionDraftStats(draft,students,tx);
+  if(!stats.itemCount)return toast('Chưa có khoản nào trong phiên để xuất.',true);
+  const headers=['STT','Họ tên','Lớp','Mã học sinh','Khoản thu','Số tiền','Ngày thu','Hình thức','Người xác nhận','Trạng thái'];
+  const method=draft.method==='direct_school'?'Chuyển thẳng cho trường':'Thu qua thủ quỹ';
+  const lines=stats.validSelections.map((x,i)=>[i+1,x.student.name,x.student.className,x.student.classStudentCode||x.student.code,x.item.name,x.item.amount,draft.date,method,draft.cashier,'Chờ xác nhận'].map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(','));
+  lines.push(['','','','','TỔNG THEO SỔ',stats.amount,'','','',''].map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(','));
+  lines.push(['','','','','THỰC TẾ',parseMoneyInput($('#cashSessionActual').value),'','','',''].map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(','));
+  download(`bang-ke-phien-thu-thu-cong-${draft.className||'lop'}-${draft.date||'ngay'}.csv`,'\uFEFF'+headers.join(',')+'\r\n'+lines.join('\r\n'),'text/csv;charset=utf-8');
+}
+async function confirmCashSession(){
+  const [students,stored]=await Promise.all([all('students'),all('transactions')]),tx=reconcileTransactions(students,stored),draft=await getCashSessionDraft(),stats=cashSessionDraftStats(draft,students,tx);
+  const actual=parseMoneyInput($('#cashSessionActual').value),cashier=$('#cashSessionCashier').value.trim(),date=$('#cashSessionDate').value,method=$('#cashSessionMethod').value||'cashier';
+  if(!stats.itemCount)return toast('Phiên chưa có khoản thu.',true);
+  if(stats.conflicts.length)return toast(`Có ${stats.conflicts.length} khoản đã được thanh toán bằng hình thức khác. Không thể đồng bộ.`,true);
+  if(actual!==stats.amount)return toast('Số tiền thực tế chưa khớp tổng theo sổ.',true);
+  if(!cashier||!date)return toast('Hãy nhập ngày thu và người xác nhận / thủ quỹ.',true);
+  const latestStored=await all('transactions'),latestTx=reconcileTransactions(students,latestStored),latestPaid=confirmedPaymentMap(latestTx);
+  const finalSelections=stats.validSelections.filter(x=>!latestPaid.has(cashSessionKey(x.student.code,x.item.id)));
+  if(finalSelections.length!==stats.validSelections.length)return toast('Dữ liệu vừa thay đổi: có khoản đã được thanh toán. Hãy rà soát lại phiên.',true);
+  const now=new Date().toISOString(),channel=method==='direct_school'?'direct_school':'cash',sourceType=method==='direct_school'?'direct_school':'cash';
+  const txs=finalSelections.map((x,i)=>({
+    id:`${sourceType}:${draft.sessionId}:${x.student.code}:${x.item.id}`,ref:`${draft.sessionId}-${String(i+1).padStart(3,'0')}`,date,
+    content:method==='direct_school'?`Phụ huynh chuyển thẳng cho trường - ${x.item.name}`:`Thu qua thủ quỹ - ${x.item.name}`,
+    amount:x.item.amount,feeCategory:x.item.category,feeDetail:x.item.name,reportedStudentCode:x.student.code,reportedPaymentCode:x.item.paymentCode||x.item.qrAccountNumber||x.student.code,bankStatus:'thanh cong',
+    studentCode:x.student.code,studentName:x.student.name,sourceFile:`Phiên thu thủ công ${draft.sessionId}`,importedAt:now,matched:true,sourceType,paymentChannel:channel,manualDueItemId:x.item.id,payerName:method==='direct_school'?'Phụ huynh chuyển thẳng cho trường':'Nộp trực tiếp tại thủ quỹ',cashSessionId:draft.sessionId,cashier,confirmedAt:now
+  }));
+  await putMany('transactions',txs);
+  await request('history','put',{id:crypto.randomUUID(),kind:method==='direct_school'?'Xác nhận chuyển thẳng cho trường':'Xác nhận phiên thủ quỹ',fileName:draft.sessionId,rows:txs.length,imported:txs.length,detail:`${txs.length} khoản · ${money(stats.amount)} · người xác nhận ${cashier} · KHỚP thực tế`,at:now});
+  await request('meta','put',{key:`cashSession:${draft.sessionId}`,sessionId:draft.sessionId,status:'confirmed',method,className:draft.className,date,cashier,expected:stats.amount,actual,items:txs.map(t=>({studentCode:t.studentCode,itemId:t.manualDueItemId,amount:t.amount})),confirmedAt:now});
+  draft.selections=[];draft.actual=0;draft.sessionId=`CS-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(Date.now()).slice(-5)}`;draft.cashier=cashier;draft.date=date;draft.method=method;
+  await saveCashSessionDraft(draft);$('#cashSessionActual').value='';await refresh();toast(`Đã xác nhận và đồng bộ ${txs.length} khoản · ${money(stats.amount)}.`);
+}
+function manualImportStudent(row,headers,students){
+  const get=(patterns)=>{for(let i=0;i<headers.length;i++){const h=slug(headers[i]);if(patterns.some(p=>h===p||h.includes(p)))return String(row[i]??'').trim();}return '';};
+  const code=get(['ma hoc sinh','ma hs','ma hs theo lop','student id']),external=get(['ma so cd','cccd','ma cd']),name=get(['ho ten','ho va ten','ten hoc sinh']),className=get(['lop','ten lop hoc']);
+  if(code){const s=students.find(x=>[x.code,x.classStudentCode].some(v=>slug(v)===slug(code)));if(s)return s;}
+  if(external){const s=students.find(x=>slug(x.externalCode)===slug(external));if(s)return s;}
+  if(name&&className){const matches=students.filter(x=>slug(x.name)===slug(name)&&slug(x.className)===slug(className));if(matches.length===1)return matches[0];}
+  return null;
+}
+function manualImportItem(row,headers,student){
+  const get=(patterns)=>{for(let i=0;i<headers.length;i++){const h=slug(headers[i]);if(patterns.some(p=>h===p||h.includes(p)))return String(row[i]??'').trim();}return '';};
+  const raw=get(['khoan thu','mon thu','noi dung thu','ma khoan']),code=feeSafeCode(raw,12),amount=parseMoneyInput(get(['so tien','amount']));
+  const items=studentDueItems(student);
+  let candidates=items.filter(x=>slug(x.name)===slug(raw)||feeSafeCode(x.feeCode,12)===code||feeSafeCode(x.shortCode,2)===feeSafeCode(raw,2));
+  if(amount)candidates=candidates.filter(x=>num(x.amount)===amount);
+  return candidates.length===1?candidates[0]:null;
+}
+async function importManualCollectionFile(file){
+  if(!file)return;
+  const rows=await readRows(file);if(!rows?.length)throw new Error('File không có dữ liệu.');
+  const headers=rows[0]||[],data=rows.slice(1),[students,stored]=await Promise.all([all('students'),all('transactions')]),transactions=reconcileTransactions(students,stored),paid=confirmedPaymentMap(transactions),draft=await getCashSessionDraft(),map=cashSessionSelectionMap(draft);
+  let added=0,skipped=0;const warnings=[];
+  for(let i=0;i<data.length;i++){
+    const row=data[i];if(!(row||[]).some(v=>String(v??'').trim()))continue;
+    const student=manualImportStudent(row,headers,students);if(!student){warnings.push(`Dòng ${i+2}: không xác định được học sinh.`);skipped++;continue;}
+    const item=manualImportItem(row,headers,student);if(!item){warnings.push(`Dòng ${i+2}: không xác định duy nhất khoản thu/số tiền của ${student.name}.`);skipped++;continue;}
+    const key=cashSessionKey(student.code,item.id);if(paid.has(key)){warnings.push(`Dòng ${i+2}: ${student.name} · ${item.name} đã được ghi nhận thu.`);skipped++;continue;}
+    if(!map.has(key)){map.set(key,{studentCode:student.code,itemId:item.id,selectedAt:new Date().toISOString(),sourceFile:file.name});added++;}
+  }
+  draft.selections=[...map.values()];await saveCashSessionDraft(draft);
+  $('#manualCollectionStatus').textContent=`Đã đưa ${added} món vào phiên chờ xác nhận${skipped?` · ${skipped} dòng cần rà soát`:''}.`;
+  const [freshStudents,freshStored]=await Promise.all([all('students'),all('transactions')]);await renderCashSession(freshStudents,reconcileTransactions(freshStudents,freshStored));
+  if(warnings.length)console.warn('Thu thủ công:',warnings);
+  toast(`Đã thêm ${added} món từ file vào phiên chờ xác nhận.${skipped?` Có ${skipped} dòng chưa nhận diện.`:''}`,skipped>0&&added===0);
+}
+function downloadManualCollectionTemplate(){
+  const headers=['Mã học sinh','Họ tên','Lớp','Khoản thu','Số tiền','Ngày thu','Hình thức','Ghi chú'];
+  const samples=[['HG2-6A1-01','Nguyễn Văn A','6A1','Bảo hiểm thân thể',100000,new Date().toISOString().slice(0,10),'Thu qua thủ quỹ',''],['HG2-6A1-02','Trần Thị B','6A1','Bảo hiểm y tế',683100,new Date().toISOString().slice(0,10),'Chuyển thẳng cho trường','']];
+  const lines=samples.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(','));
+  download('Mau-nhap-thu-thu-cong-THCS-So-2-Hieu-Giang.csv','\uFEFF'+headers.join(',')+'\r\n'+lines.join('\r\n'),'text/csv;charset=utf-8');
+}
 
 function unpaidCashCandidates(students,transactions){
   const paid=new Set(transactions.filter(t=>t.paymentStatus==='valid').flatMap(transactionPaidKeys));
