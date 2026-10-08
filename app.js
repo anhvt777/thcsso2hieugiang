@@ -1329,10 +1329,24 @@ function bidvExportScopeStudents(students){
   if(scope==='class')return students.filter(s=>s.className===target);
   return students;
 }
+function bidvFeeOptions(students,catalog){
+  const out=catalog.map(f=>({...f,source:'catalog',optionId:`catalog:${f.id}`}));
+  const seen=new Set(out.map(f=>slug(f.code)));
+  const sourceDefs=[
+    {category:'insurance',code:'BHYT',name:'Bảo hiểm y tế (BHYT)'},
+    {category:'mandatory',code:'BHTT',name:'Bảo hiểm thân thể (BHTT)'},
+    {category:'service',code:'DV',name:'Dịch vụ khác'}
+  ];
+  for(const def of sourceDefs){
+    const exists=students.some(s=>studentDueItems(s).some(x=>!x.catalogId&&x.category===def.category));
+    if(exists&&!seen.has(slug(def.code)))out.push({...def,id:def.category,source:'source',optionId:`source:${def.category}`,amount:0});
+  }
+  return out;
+}
 function populateBidvExportControls(students,catalog){
   const fee=$('#bidvExportFee');if(!fee)return;
-  const currentFee=fee.value;
-  fee.innerHTML='<option value="">— Chọn khoản thu —</option>'+catalog.sort((a,b)=>a.name.localeCompare(b.name,'vi')).map(f=>`<option value="${escapeHTML(f.id)}">${escapeHTML(f.name)} · ${money(f.amount)} · ${escapeHTML(f.code)}</option>`).join('');
+  const currentFee=fee.value,feeOptions=bidvFeeOptions(students,catalog);
+  fee.innerHTML='<option value="">— Chọn khoản thu —</option>'+feeOptions.sort((a,b)=>a.name.localeCompare(b.name,'vi')).map(f=>`<option value="${escapeHTML(f.optionId)}">${escapeHTML(f.name)}${f.amount?` · ${money(f.amount)}`:''} · ${escapeHTML(f.code)}</option>`).join('');
   if([...fee.options].some(o=>o.value===currentFee))fee.value=currentFee;
   const scope=$('#bidvExportScope')?.value||'all',target=$('#bidvExportTarget'),currentTarget=target?.value||'all';
   if(!target)return;
@@ -1345,7 +1359,7 @@ function populateBidvExportControls(students,catalog){
 }
 function updateBidvCustomerPreview(students,catalog){
   const sample=bidvExportScopeStudents(students)[0]||students[0];
-  const fee=catalog.find(f=>f.id===$('#bidvExportFee')?.value)||catalog[0];
+  const options=bidvFeeOptions(students,catalog),fee=options.find(f=>f.optionId===$('#bidvExportFee')?.value)||options[0];
   const prefix=$('#bidvCustomerPrefix')?.value||'HG2',period=$('#bidvBillPeriod')?.value||String(new Date().getFullYear()),template=$('#bidvCustomerTemplate')?.value||'{PREFIX}{YY}{CLASS}{SEQ}{FEE}';
   const code=sample&&fee?bidvCustomerCodeFromTemplate(template,sample,fee.code,prefix,period):'—';
   if($('#bidvCustomerPreview'))$('#bidvCustomerPreview').textContent=code;
@@ -1353,7 +1367,7 @@ function updateBidvCustomerPreview(students,catalog){
 }
 async function bidvExportRows(validateOnly=false){
   const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);
-  const fee=catalog.find(f=>f.id===$('#bidvExportFee')?.value);
+  const feeOptions=bidvFeeOptions(students,catalog),fee=feeOptions.find(f=>f.optionId===$('#bidvExportFee')?.value);
   if(!fee)throw new Error('Hãy chọn khoản thu cần xuất.');
   const period=String($('#bidvBillPeriod')?.value||'').trim();
   if(!period)throw new Error('Hãy nhập Kỳ hóa đơn.');
@@ -1366,7 +1380,7 @@ async function bidvExportRows(validateOnly=false){
   const paidKeys=new Set(transactions.filter(t=>t.paymentStatus==='valid').flatMap(transactionPaidKeys));
   const rows=[],seen=new Set(),changes=new Map();
   for(const student of scoped){
-    const item=studentDueItems(student).find(x=>x.catalogId===fee.id);
+    const item=studentDueItems(student).find(x=>fee.source==='catalog'?x.catalogId===fee.id:(!x.catalogId&&x.category===fee.category));
     if(!item)continue;
     const paymentKey=`${student.code}|${item.id}`;
     if(onlyUnpaid&&paidKeys.has(paymentKey))continue;
@@ -1390,7 +1404,7 @@ async function bidvExportRows(validateOnly=false){
   if(changes.size){
     const updated=students.map(s=>{
       if(!changes.has(s.code))return s;
-      const dueItems=studentDueItems(s).map(item=>item.catalogId===fee.id?{...item,paymentCode:changes.get(s.code)}:item);
+      const dueItems=studentDueItems(s).map(item=>(fee.source==='catalog'?item.catalogId===fee.id:(!item.catalogId&&item.category===fee.category))?{...item,paymentCode:changes.get(s.code),feeCode:item.feeCode||fee.code}:item);
       return {...s,dueItems,updatedAt:new Date().toISOString()};
     });
     await putMany('students',updated);
