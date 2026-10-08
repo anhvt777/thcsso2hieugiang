@@ -955,13 +955,19 @@ function populateFeeTargets(students){
   select.innerHTML=options.map(([v,l])=>`<option value="${escapeHTML(v)}">${escapeHTML(l)}</option>`).join('');
   $('#feeTargetSummary').textContent=options.length?'Chưa chọn đối tượng':'Chưa có dữ liệu phù hợp';
 }
+function defaultFeeShortCode(category,code=''){
+  if(category==='insurance')return 'YT';
+  if(category==='mandatory')return 'TT';
+  if(category==='service')return 'DV';
+  const raw=feeSafeCode(code,2);return raw||'KH';
+}
 function updateFeePreview(students){
-  const prefix=$('#feePrefix')?.value||'HG2',code=$('#feeCode')?.value||'KHOAN',sample=students[0];
-  $('#feeCodePreview').textContent=`${feeSafeCode(prefix)||'HG2'} + Mã học sinh + ${feeSafeCode(code)||'MÃ KHOẢN'}`;
-  $('#feeCodePreviewExample').textContent=sample?`Ví dụ: ${buildPaymentCode(prefix,sample.classStudentCode||sample.code,code)} · ${sample.name}`:'Ví dụ sẽ hiển thị sau khi có danh sách học sinh.';
+  const prefix=$('#feePrefix')?.value||'HG2',code=$('#feeCode')?.value||'KHOAN',category=$('#feeCategory')?.value||'service',shortCode=feeSafeCode($('#feeShortCode')?.value||defaultFeeShortCode(category,code),2),sample=students[0];
+  $('#feeCodePreview').textContent=`${feeSafeCode(prefix)||'HG2'} + Mã học sinh + ${shortCode||'XX'}`;
+  $('#feeCodePreviewExample').textContent=sample?`Ví dụ: ${buildPaymentCode(prefix,sample.classStudentCode||sample.code,shortCode)} · ${sample.name}`:'Ví dụ sẽ hiển thị sau khi có danh sách học sinh.';
 }
 function resetFeeForm(students=[]){
-  $('#feeEditingId').value='';$('#feeBuilderTitle').textContent='Tạo khoản thu';$('#feeName').value='';$('#feeCode').value='';$('#feeAmount').value='';$('#feeCategory').value='service';$('#feePrefix').value='HG2';$('#feeScope').value='all';$('#cancelFeeEdit').hidden=true;$('#saveFeeAssignment').textContent='Tạo & phân giao';populateFeeTargets(students);updateFeePreview(students);
+  $('#feeEditingId').value='';$('#feeBuilderTitle').textContent='Tạo khoản thu';$('#feeName').value='';$('#feeCode').value='';$('#feeShortCode').value='DV';$('#feeAmount').value='';$('#feeCategory').value='service';$('#feePrefix').value='HG2';$('#feeScope').value='all';$('#cancelFeeEdit').hidden=true;$('#saveFeeAssignment').textContent='Tạo & phân giao';populateFeeTargets(students);updateFeePreview(students);
 }
 function feeItemAssignmentCount(students,id){return students.reduce((n,s)=>n+studentDueItems(s).filter(x=>x.catalogId===id).length,0);}
 function renderFeeCatalog(catalog,students){
@@ -969,7 +975,7 @@ function renderFeeCatalog(catalog,students){
   $('#feeCatalogList').innerHTML=catalog.length?catalog.map(f=>{
     const count=feeItemAssignmentCount(students,f.id);
     const scope=f.lastScope==='all'?'Toàn trường':f.lastScope==='grade'?'Theo khối':f.lastScope==='class'?'Theo lớp':'Theo học sinh';
-    return `<article class="fee-catalog-item"><div><span class="category-badge ${f.category==='service'?'service':''}">${escapeHTML(f.code)}</span><h3>${escapeHTML(f.name)}</h3><p>${money(f.amount)} · ${scope} · ${count} học sinh</p></div><div class="fee-catalog-actions"><button class="button button-outline button-small" data-fee-edit="${f.id}">Sửa</button><button class="button button-danger button-small" data-fee-delete="${f.id}">Xóa</button></div></article>`;
+    return `<article class="fee-catalog-item"><div><span class="category-badge ${f.category==='service'?'service':''}">${escapeHTML(f.code)} / ${escapeHTML(f.shortCode||defaultFeeShortCode(f.category,f.code))}</span><h3>${escapeHTML(f.name)}</h3><p>${money(f.amount)} · ${scope} · ${count} học sinh</p></div><div class="fee-catalog-actions"><button class="button button-outline button-small" data-fee-edit="${f.id}">Sửa</button><button class="button button-danger button-small" data-fee-delete="${f.id}">Xóa</button></div></article>`;
   }).join(''):'<div class="empty-inline">Chưa có khoản thu. Tạo khoản đầu tiên ở biểu mẫu bên trái.</div>';
 }
 function bidvStudentParts(student){
@@ -1005,9 +1011,9 @@ function bidvFeeOptions(students,catalog){
   const out=catalog.map(f=>({...f,source:'catalog',optionId:`catalog:${f.id}`}));
   const seen=new Set(out.map(f=>slug(f.code)));
   const sourceDefs=[
-    {category:'insurance',code:'BHYT',name:'Bảo hiểm y tế (BHYT)'},
-    {category:'mandatory',code:'BHTT',name:'Bảo hiểm thân thể (BHTT)'},
-    {category:'service',code:'DV',name:'Dịch vụ khác'}
+    {category:'insurance',code:'BHYT',shortCode:'YT',name:'Bảo hiểm y tế (BHYT)'},
+    {category:'mandatory',code:'BHTT',shortCode:'TT',name:'Bảo hiểm thân thể (BHTT)'},
+    {category:'service',code:'DV',shortCode:'DV',name:'Dịch vụ khác'}
   ];
   for(const def of sourceDefs){
     const exists=students.some(s=>studentDueItems(s).some(x=>!x.catalogId&&x.category===def.category));
@@ -1033,7 +1039,8 @@ function updateBidvCustomerPreview(students,catalog){
   const sample=bidvExportScopeStudents(students)[0]||students[0];
   const options=bidvFeeOptions(students,catalog),fee=options.find(f=>f.optionId===$('#bidvExportFee')?.value)||options[0];
   const prefix=$('#bidvCustomerPrefix')?.value||'HG2',period=$('#bidvBillPeriod')?.value||String(new Date().getFullYear()),template=$('#bidvCustomerTemplate')?.value||'{PREFIX}{YY}{CLASS}{SEQ}{FEE}';
-  const code=sample&&fee?bidvCustomerCodeFromTemplate(template,sample,fee.code,prefix,period):'—';
+  const feeToken=fee?.shortCode||defaultFeeShortCode(fee?.category,fee?.code);
+  const code=sample&&fee?bidvCustomerCodeFromTemplate(template,sample,feeToken,prefix,period):'—';
   if($('#bidvCustomerPreview'))$('#bidvCustomerPreview').textContent=code;
   if($('#bidvCustomerPreviewText'))$('#bidvCustomerPreviewText').textContent=sample&&fee?`${sample.name} · ${sample.className} · ${fee.name}`:'Chọn khoản thu để xem mã mẫu.';
 }
@@ -1047,7 +1054,7 @@ async function bidvExportRows(validateOnly=false){
   if(!template)throw new Error('Hãy nhập cấu trúc Mã khách hàng.');
   const prefix=String($('#bidvCustomerPrefix')?.value||'').trim();
   const onlyUnpaid=$('#bidvOnlyUnpaid')?.checked!==false;
-  const scoped=bidvExportScopeStudents(students);
+  const scoped=bidvExportScopeStudents(students).slice().sort((a,b)=>String(a.className||'').localeCompare(String(b.className||''),'vi',{numeric:true,sensitivity:'base'})||String(a.name||'').localeCompare(String(b.name||''),'vi',{sensitivity:'base'}));
   const transactions=reconcileTransactions(students,stored);
   const paidKeys=new Set(transactions.filter(t=>t.paymentStatus==='valid').flatMap(transactionPaidKeys));
   const rows=[],seen=new Set(),changes=new Map();
@@ -1056,7 +1063,8 @@ async function bidvExportRows(validateOnly=false){
     if(!item)continue;
     const paymentKey=`${student.code}|${item.id}`;
     if(onlyUnpaid&&paidKeys.has(paymentKey))continue;
-    const customerId=bidvCustomerCodeFromTemplate(template,student,fee.code,prefix,period);
+    const feeToken=fee.shortCode||defaultFeeShortCode(fee.category,fee.code);
+    const customerId=bidvCustomerCodeFromTemplate(template,student,feeToken,prefix,period);
     if(!customerId)throw new Error(`Không tạo được Mã khách hàng cho ${student.name}.`);
     if(!/^[A-Z0-9]+$/.test(customerId))throw new Error(`Mã khách hàng ${customerId} có ký tự không hợp lệ.`);
     if(seen.has(customerId))throw new Error(`Trùng Mã khách hàng: ${customerId}. Hãy đổi cấu trúc mã.`);
@@ -1067,7 +1075,7 @@ async function bidvExportRows(validateOnly=false){
       rows.length+1,customerId,bidvName(student.name,120),vaName,period,num(item.amount),'VND','',
       '',bidvName(student.className,120),'',
       bidvName(student.externalCode||'',120),bidvName(student.code||'',120),
-      bidvName(student.classStudentCode||'',120),bidvName(fee.code||'',120),bidvName(student.note||student.studentType||'',120)
+      bidvName(student.classStudentCode||'',120),bidvName(feeToken||'',120),bidvName(student.note||student.studentType||'',120)
     ]);
     if(slug(item.paymentCode)!==slug(customerId))changes.set(student.code,customerId);
   }
@@ -1076,7 +1084,7 @@ async function bidvExportRows(validateOnly=false){
   if(changes.size){
     const updated=students.map(s=>{
       if(!changes.has(s.code))return s;
-      const dueItems=studentDueItems(s).map(item=>(fee.source==='catalog'?item.catalogId===fee.id:(!item.catalogId&&item.category===fee.category))?{...item,paymentCode:changes.get(s.code),feeCode:item.feeCode||fee.code}:item);
+      const dueItems=studentDueItems(s).map(item=>(fee.source==='catalog'?item.catalogId===fee.id:(!item.catalogId&&item.category===fee.category))?{...item,paymentCode:changes.get(s.code),feeCode:item.feeCode||fee.code,shortCode:item.shortCode||fee.shortCode||defaultFeeShortCode(fee.category,fee.code)}:item);
       return {...s,dueItems,updatedAt:new Date().toISOString()};
     });
     await putMany('students',updated);
@@ -1112,8 +1120,8 @@ async function renderFeeSetup(students){
 }
 async function saveFeeAssignment(){
   const students=await all('students');if(!students.length)return toast('Hãy nhập danh sách học sinh trước khi tạo khoản thu.',true);
-  const id=$('#feeEditingId').value||crypto.randomUUID(),name=$('#feeName').value.trim(),code=feeSafeCode($('#feeCode').value,8),amount=parseAmount($('#feeAmount').value),category=$('#feeCategory').value,prefix=feeSafeCode($('#feePrefix').value||'HG',6),scope=$('#feeScope').value,targets=selectedValues($('#feeTargets'));
-  if(!name||!code||amount<=0)return toast('Hãy nhập tên khoản, mã khoản và số tiền hợp lệ.',true);
+  const id=$('#feeEditingId').value||crypto.randomUUID(),name=$('#feeName').value.trim(),code=feeSafeCode($('#feeCode').value,8),amount=parseAmount($('#feeAmount').value),category=$('#feeCategory').value,shortCode=feeSafeCode($('#feeShortCode').value||defaultFeeShortCode(category,code),2),prefix=feeSafeCode($('#feePrefix').value||'HG',6),scope=$('#feeScope').value,targets=selectedValues($('#feeTargets'));
+  if(!name||!code||shortCode.length!==2||amount<=0)return toast('Hãy nhập tên khoản, mã khoản, ký hiệu 2 ký tự và số tiền hợp lệ.',true);
   if(scope!=='all'&&!targets.length)return toast('Hãy chọn ít nhất một đối tượng áp dụng.',true);
   const catalog=await getFeeCatalog();const duplicate=catalog.find(f=>f.id!==id&&feeSafeCode(f.code)===code);if(duplicate)return toast('Mã khoản đã tồn tại. Hãy dùng mã khác.',true);
   const existingFee=catalog.find(f=>f.id===id);
@@ -1124,21 +1132,21 @@ async function saveFeeAssignment(){
   const updated=students.map(s=>{
     const items=studentDueItems(s).filter(item=>item.catalogId!==id);
     if(chosenSet.has(s.code)){
-      const paymentCode=buildPaymentCode(prefix,s.classStudentCode||s.code,code),paymentKey=slug(paymentCode);
+      const paymentCode=buildPaymentCode(prefix,s.classStudentCode||s.code,shortCode),paymentKey=slug(paymentCode);
       if(!paymentCode||[...codes].some(existing=>existing===paymentKey&&!studentDueItems(s).some(x=>x.catalogId===id&&slug(x.paymentCode)===paymentKey)))throw new Error(`Mã khách hàng bị trùng: ${paymentCode}. Hãy đổi tiền tố hoặc mã khoản.`);
-      items.push({id:`catalog:${id}:${slug(s.code)}`,catalogId:id,paymentCode,category,name,amount,feeCode:code,createdAt:now});
+      items.push({id:`catalog:${id}:${slug(s.code)}`,catalogId:id,paymentCode,category,name,amount,feeCode:code,shortCode,createdAt:now});
     }
     const due=items.reduce((sum,x)=>sum+num(x.amount),0),dueByCategory=items.reduce((o,x)=>(o[x.category]=(o[x.category]||0)+num(x.amount),o),{insurance:0,mandatory:0,service:0,other:0});
     return {...s,due,dueItems:items,dueByCategory,hasFeeBreakdown:true,updatedAt:now};
   });
   await putMany('students',updated);
-  const entry={id,name,code,amount,category,prefix,lastScope:scope,lastTargets:scope==='all'?[]:targets,updatedAt:now,createdAt:catalog.find(f=>f.id===id)?.createdAt||now};
+  const entry={id,name,code,shortCode,amount,category,prefix,lastScope:scope,lastTargets:scope==='all'?[]:targets,updatedAt:now,createdAt:catalog.find(f=>f.id===id)?.createdAt||now};
   const next=[...catalog.filter(f=>f.id!==id),entry];await request('meta','put',feeCatalogRecord(next));
   await refresh();resetFeeForm(await all('students'));toast(`Đã phân giao “${name}” cho ${chosen.length} học sinh.`);
 }
 async function editFee(id){
   const [catalog,students]=await Promise.all([getFeeCatalog(),all('students')]);const f=catalog.find(x=>x.id===id);if(!f)return;
-  $('#feeEditingId').value=f.id;$('#feeBuilderTitle').textContent='Cập nhật khoản thu';$('#feeName').value=f.name;$('#feeCode').value=f.code;$('#feeAmount').value=f.amount;$('#feeCategory').value=f.category;$('#feePrefix').value=f.prefix||'HG';$('#feeScope').value=f.lastScope||'all';populateFeeTargets(students);
+  $('#feeEditingId').value=f.id;$('#feeBuilderTitle').textContent='Cập nhật khoản thu';$('#feeName').value=f.name;$('#feeCode').value=f.code;$('#feeShortCode').value=f.shortCode||defaultFeeShortCode(f.category,f.code);$('#feeAmount').value=f.amount;$('#feeCategory').value=f.category;$('#feePrefix').value=f.prefix||'HG';$('#feeScope').value=f.lastScope||'all';populateFeeTargets(students);
   const targetSet=new Set(f.lastTargets||[]);[...$('#feeTargets').options].forEach(o=>o.selected=targetSet.has(o.value));$('#cancelFeeEdit').hidden=false;$('#saveFeeAssignment').textContent='Lưu & phân giao lại';updateFeePreview(students);setPage('fee-setup');
 }
 async function deleteFee(id){
@@ -1679,7 +1687,8 @@ function wire() {
   $('#studentProfileClose').onclick=closeStudentProfile;$('#studentProfileBackdrop').addEventListener('click',e=>{if(e.target.id==='studentProfileBackdrop')closeStudentProfile();});
   $('#feeScope').addEventListener('change',async()=>populateFeeTargets(await all('students')));
   $('#feeTargets').addEventListener('change',async()=>{const students=await all('students');const chosen=feeTargetStudents(students,$('#feeScope').value,selectedValues($('#feeTargets')));$('#feeTargetSummary').textContent=`${chosen.length} học sinh được chọn`;});
-  ['feePrefix','feeCode'].forEach(id=>$(`#${id}`).addEventListener('input',async()=>updateFeePreview(await all('students'))));
+  ['feePrefix','feeCode','feeShortCode'].forEach(id=>$(`#${id}`).addEventListener('input',async()=>updateFeePreview(await all('students'))));
+  $('#feeCategory').addEventListener('change',async()=>{const code=defaultFeeShortCode($('#feeCategory').value,$('#feeCode').value);$('#feeShortCode').value=code;updateFeePreview(await all('students'));});
   $('#bidvExportScope').addEventListener('change',async()=>{const [students,catalog]=await Promise.all([all('students'),getFeeCatalog()]);populateBidvExportControls(students,catalog);});
   ['bidvExportFee','bidvExportTarget'].forEach(id=>$(`#${id}`).addEventListener('change',async()=>{const [students,catalog]=await Promise.all([all('students'),getFeeCatalog()]);updateBidvCustomerPreview(students,catalog);}));
   ['bidvBillPeriod','bidvCustomerPrefix','bidvCustomerTemplate'].forEach(id=>$(`#${id}`).addEventListener('input',async()=>{const [students,catalog]=await Promise.all([all('students'),getFeeCatalog()]);updateBidvCustomerPreview(students,catalog);}));
