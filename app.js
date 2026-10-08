@@ -888,6 +888,7 @@ function setPage(page) {
     students:['Học sinh','Danh sách và số phải thu chi tiết theo từng học sinh'],
     fees:['Khoản thu','Theo dõi riêng bảo hiểm, dịch vụ khác và từng nội dung dịch vụ'],
     'fee-setup':['Thiết lập khoản thu','Tạo và phân giao khoản thu theo toàn trường, khối, lớp hoặc học sinh'],
+    'bidv-export':['Bảng kê BIDV','Tạo mã khách hàng duy nhất và xuất XLSX nhập chương trình thu hộ'],
     notices:['Thông báo nộp tiền','Xuất A4/PDF và ảnh QR hàng loạt gửi phụ huynh'],
     receipts:['Phiếu thu / Xác nhận','Phát hành chứng từ từ các món đã đối soát thành công'],
     qr:['Tạo mã QR','Tạo QR thanh toán theo từng món thu của từng học sinh'],
