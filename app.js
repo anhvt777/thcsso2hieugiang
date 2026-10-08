@@ -1172,24 +1172,27 @@ function populateQrFileControls(students,catalog,transactions=[]){
   const scope=scopeEl.value||'all',current=target.value||'all';
   const entries=qrFileAllEntries(students,catalog,transactions);
   let options=[['all','Tất cả']];
-  if(scope==='fee'){
-    const feeMap=new Map();
-    for(const e of entries)if(!feeMap.has(e.feeKey))feeMap.set(e.feeKey,`${e.feeName} · ${e.feeShort}`);
-    options=[...feeMap.entries()].sort((a,b)=>a[1].localeCompare(b[1],'vi'));
-  }else if(scope==='class'){
+  if(scope==='class'){
     options=[...new Set(students.map(s=>s.className).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'vi',{numeric:true})).map(x=>[x,x]);
   }else if(scope==='student'){
     options=[...students].sort((a,b)=>a.className.localeCompare(b.className,'vi',{numeric:true})||a.name.localeCompare(b.name,'vi')).map(s=>[s.code,`${s.className} · ${s.name} · ${s.classStudentCode||s.code}`]);
   }
   target.innerHTML=options.map(([v,l])=>`<option value="${escapeHTML(v)}">${escapeHTML(l)}</option>`).join('');
   if([...target.options].some(o=>o.value===current))target.value=current;
+  const feeEl=$('#qrFileFee'),currentFee=feeEl?.value||'all';
+  if(feeEl){
+    const feeMap=new Map([['all','Tất cả món thu']]);
+    for(const e of entries)if(!feeMap.has(e.feeKey))feeMap.set(e.feeKey,`${e.feeName} · ${e.feeShort}`);
+    feeEl.innerHTML=[...feeMap.entries()].map(([v,l])=>`<option value="${escapeHTML(v)}">${escapeHTML(l)}</option>`).join('');
+    if([...feeEl.options].some(o=>o.value===currentFee))feeEl.value=currentFee;
+  }
   updateQrFilePreview(students,catalog,transactions);
 }
 function qrFileFilteredEntries(students,catalog,transactions){
-  const scope=$('#qrFileScope')?.value||'all',target=$('#qrFileTarget')?.value||'all',onlyUnpaid=$('#qrFileOnlyUnpaid')?.checked!==false;
+  const scope=$('#qrFileScope')?.value||'all',target=$('#qrFileTarget')?.value||'all',feeTarget=$('#qrFileFee')?.value||'all',onlyUnpaid=$('#qrFileOnlyUnpaid')?.checked!==false;
   let entries=qrFileAllEntries(students,catalog,transactions);
   if(onlyUnpaid)entries=entries.filter(e=>!e.paid);
-  if(scope==='fee'&&target!=='all')entries=entries.filter(e=>e.feeKey===target);
+  if(feeTarget!=='all')entries=entries.filter(e=>e.feeKey===feeTarget);
   if(scope==='class'&&target!=='all')entries=entries.filter(e=>e.student.className===target);
   if(scope==='student'&&target!=='all')entries=entries.filter(e=>e.student.code===target);
   return entries.sort((a,b)=>String(a.student.className||'').localeCompare(String(b.student.className||''),'vi',{numeric:true,sensitivity:'base'})||String(a.student.name||'').localeCompare(String(b.student.name||''),'vi',{sensitivity:'base'})||String(a.feeName||'').localeCompare(String(b.feeName||''),'vi'));
@@ -1212,10 +1215,9 @@ async function qrFileRows(validateOnly=false){
   const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);
   const transactions=reconcileTransactions(students,stored),entries=qrFileFilteredEntries(students,catalog,transactions);
   if(!entries.length)throw new Error('Không có món thu phù hợp để xuất QR.');
-  const prefix=String($('#qrFilePrefix')?.value||'').trim(),period=String($('#qrFilePeriod')?.value||'').trim(),bank=qrFileText($('#qrFileBank')?.value||'BIDV',20),bankBin=String($('#qrFileBankBin')?.value||'').replace(/\D/g,''),mode=$('#qrFileStudentCodeMode')?.value||'base';
+  const prefix=String($('#qrFilePrefix')?.value||'').trim(),period=String($('#qrFilePeriod')?.value||'').trim(),bank='BIDV',bankBin='970418',mode=$('#qrFileStudentCodeMode')?.value||'base';
   if(!prefix)throw new Error('Hãy nhập Mã đầu định danh.');
   if(!period)throw new Error('Hãy nhập Kỳ thu.');
-  if(!/^\d{6}$/.test(bankBin))throw new Error('BankBin phải gồm đúng 6 chữ số.');
   const seen=new Set(),rows=[],changes=new Map();
   for(const e of entries){
     const accountNumber=qrFileAccountNumber(prefix,e.student,e.item,mode,e.feeShort);
@@ -1852,7 +1854,8 @@ function wire() {
   $('#bidvExportXlsx').onclick=()=>exportBidvXlsx().catch(e=>{console.error(e);$('#bidvExportStatus').textContent=e.message||'Không xuất được bảng kê.';toast(e.message||'Không xuất được bảng kê.',true);});
   $('#qrFileScope').addEventListener('change',async()=>{const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);populateQrFileControls(students,catalog,reconcileTransactions(students,stored));});
   $('#qrFileTarget').addEventListener('change',async()=>{const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);updateQrFilePreview(students,catalog,reconcileTransactions(students,stored));});
-  ['qrFilePrefix','qrFilePeriod','qrFileBank','qrFileBankBin'].forEach(id=>$(`#${id}`).addEventListener('input',async()=>{const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);updateQrFilePreview(students,catalog,reconcileTransactions(students,stored));}));
+  ['qrFilePrefix','qrFilePeriod'].forEach(id=>$(`#${id}`).addEventListener('input',async()=>{const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);updateQrFilePreview(students,catalog,reconcileTransactions(students,stored));}));
+  $('#qrFileFee').addEventListener('change',async()=>{const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);updateQrFilePreview(students,catalog,reconcileTransactions(students,stored));});
   $('#qrFileStudentCodeMode').addEventListener('change',async()=>{const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);updateQrFilePreview(students,catalog,reconcileTransactions(students,stored));});
   $('#qrFileOnlyUnpaid').addEventListener('change',async()=>{const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);updateQrFilePreview(students,catalog,reconcileTransactions(students,stored));});
   $('#qrFileValidate').onclick=()=>validateQrFileExport().catch(e=>{console.error(e);$('#qrFileStatus').textContent=e.message||'File QR chưa hợp lệ.';toast(e.message||'File QR chưa hợp lệ.',true);});
