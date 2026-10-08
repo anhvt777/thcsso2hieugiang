@@ -1736,10 +1736,103 @@ function excelXml(value,type='inlineStr',style=0){
 function excelRow(row,cells,height){
   return `<row r="${row}"${height?` ht="${height}" customHeight="1"`:''}>${cells.map((c,i)=>`<c r="${excelCol(i+1)}${row}" s="${c.s||0}" t="${c.t==='n'?'n':'inlineStr'}">${c.t==='n'?`<v>${Number(c.v)||0}</v>`:`<is><t xml:space="preserve">${escapeHTML(String(c.v??'')).replace(/&#39;/g,'&apos;')}</t></is>`}</c>`).join('')}</row>`;
 }
+function allFeesStudentBirthDate(student){
+  const value=student.birthDate||student.dob||student.dateOfBirth||student.ngaySinh||'';
+  return normalizeDate(String(value));
+}
+function allFeesColumnKey(item){
+  if(item.catalogId)return `catalog:${item.catalogId}`;
+  return ['insurance','mandatory'].includes(item.category)?item.category:`${item.category}:${slug(item.name)}`;
+}
+function allFeesColumns(students){
+  const columns=new Map();
+  for(const student of students)for(const item of studentDueItems(student)){
+    const key=allFeesColumnKey(item);
+    if(!columns.has(key))columns.set(key,{
+      key,
+      label:item.name||(item.category==='insurance'?'BHYT':item.category==='mandatory'?'BHTT':getFeeLabel(item.category)),
+      category:item.category
+    });
+  }
+  const order=['insurance','mandatory','service','other'];
+  return [...columns.values()].sort((a,b)=>order.indexOf(a.category)-order.indexOf(b.category)||a.label.localeCompare(b.label,'vi',{numeric:true,sensitivity:'base'}));
+}
+function allFeesExcelStyles(){
+  const fonts='<font><sz val="11"/><name val="Times New Roman"/></font><font><b/><sz val="14"/><name val="Times New Roman"/></font><font><b/><sz val="11"/><name val="Times New Roman"/></font>';
+  const fills='<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F4F0"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill>';
+  const xf=(font,fill,border,format=0,align='left')=>`<xf numFmtId="${format}" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="${align}" vertical="center" wrapText="1"/></xf>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/></numFmts><fonts count="3">${fonts}</fonts><fills count="4">${fills}</fills><borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="10">${xf(0,0,0)}${xf(1,0,0,0,'center')}${xf(2,2,1,0,'center')}${xf(0,0,1,3,'right')}${xf(0,0,1)}${xf(0,0,0)}${xf(2,0,0)}${xf(2,2,1,3,'right')}${xf(0,3,1,3,'right')}${xf(0,0,1,164,'center')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+}
+function buildAllClassFeeSheets(students,transactions){
+  const columns=allFeesColumns(students);
+  const paidItems=new Set(transactions.filter(t=>t.paymentStatus==='valid').flatMap(t=>transactionPaidKeys(t)));
+  const classes=new Map();
+  for(const student of students){
+    const name=student.className||'Chưa xếp lớp';
+    if(!classes.has(name))classes.set(name,[]);
+    classes.get(name).push(student);
+  }
+  const usedNames=new Set();
+  return [...classes.entries()].sort(([a],[b])=>a.localeCompare(b,'vi',{numeric:true,sensitivity:'base'})).map(([className,members])=>{
+    const base=className.replace(/[\\/?*\[\]:\x00-\x1f]/g,'_').replace(/^'+|'+$/g,'').trim().slice(0,31)||'Chưa xếp lớp';
+    let name=base,i=1;
+    while(usedNames.has(name.toLocaleLowerCase('vi'))){const suffix=` (${++i})`;name=base.slice(0,31-suffix.length)+suffix;}
+    usedNames.add(name.toLocaleLowerCase('vi'));
+    members.sort((a,b)=>{
+      const last=n=>String(n||'').trim().split(/\s+/).pop();
+      return last(a.name).localeCompare(last(b.name),'vi',{sensitivity:'base'})||a.name.localeCompare(b.name,'vi',{sensitivity:'base'})||String(a.code).localeCompare(String(b.code),'vi',{numeric:true});
+    });
+    const headers=['STT','Họ và tên','Ngày sinh',...columns.map(x=>x.label),'Tổng cộng','Mã HS theo lớp','Mã HS gốc'];
+    const end=excelCol(headers.length),rows=[],totals=columns.map(()=>0);let total=0;
+    const title=(r,v)=>rows.push(excelRow(r,[{v,s:r===2?1:6}],r===2?28:23));
+    title(1,'TRƯỜNG THCS SỐ 2 HIẾU GIANG');
+    title(2,'THEO DÕI HỌC SINH NỘP TIỀN - TẤT CẢ CÁC KHOẢN THU');
+    title(3,`Lớp: ${className} — Sĩ số: ${members.length} — Ngày xuất: ${new Intl.DateTimeFormat('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}).format(new Date())}`);
+    title(4,'Số tiền đã nộp (đồng). Ô trống: không có khoản phải thu; ô vàng (0): có khoản phải thu nhưng chưa thu.');
+    rows.push(excelRow(6,headers.map(v=>({v,s:2})),36));
+    members.forEach((student,index)=>{
+      const due=studentDueItems(student);
+      const amounts=columns.map((col,j)=>{
+        const items=due.filter(item=>allFeesColumnKey(item)===col.key);
+        const value=items.reduce((sum,item)=>sum+(paidItems.has(`${student.code}|${item.id}`)?num(item.amount):0),0);
+        totals[j]+=value;
+        return items.length?{v:value,t:'n',s:value?3:8}:{v:'',s:4};
+      });
+      const sum=amounts.reduce((n,cell)=>n+(Number(cell.v)||0),0);total+=sum;
+      const dob=allFeesStudentBirthDate(student);
+      const dateCell=/^\d{4}-\d{2}-\d{2}$/.test(dob)?{v:Math.round((Date.parse(dob+'T00:00:00Z')-Date.UTC(1899,11,30))/86400000),t:'n',s:9}:{v:dob,s:4};
+      rows.push(excelRow(index+7,[{v:index+1,t:'n',s:4},{v:student.name,s:4},dateCell,...amounts,{v:sum,t:'n',s:7},{v:student.classStudentCode||'',s:4},{v:student.code||'',s:4}],23));
+    });
+    const last=members.length+6,totalRow=last+1;
+    rows.push(excelRow(totalRow,[{v:'TỔNG CỘNG',s:6},{v:'',s:6},{v:'',s:6},...totals.map(v=>({v,t:'n',s:7})),{v:total,t:'n',s:7},{v:'',s:6},{v:'',s:6}],26));
+    const widths=headers.map((_,idx)=>idx===0?6:idx===1?30:idx===2?14:idx>=headers.length-2?20:16);
+    const merges=[1,2,3,4].map(r=>`<mergeCell ref="A${r}:${end}${r}"/>`).join('')+`<mergeCell ref="A${totalRow}:C${totalRow}"/>`;
+    const xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${end}${totalRow}"/><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane xSplit="3" ySplit="6" topLeftCell="D7" activePane="bottomRight" state="frozen"/></sheetView></sheetViews><cols>${widths.map((w,idx)=>`<col min="${idx+1}" max="${idx+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rows.join('')}</sheetData><autoFilter ref="A6:${end}${last}"/><mergeCells count="5">${merges}</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.25" right="0.25" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup paperSize="9" orientation="landscape"/></worksheet>`;
+    return {name,xml,lastColumn:end,lastRow:totalRow};
+  });
+}
+async function exportAllClassFees(){
+  if(typeof JSZip==='undefined')return toast('Thiếu thư viện xuất Excel. Hãy tải lại trang.',true);
+  const [students,stored]=await Promise.all([all('students'),all('transactions')]);
+  if(!students.length)return toast('Chưa có danh sách học sinh để xuất báo cáo.',true);
+  const sheets=buildAllClassFeeSheets(students,reconcileTransactions(students,stored)),zip=new JSZip();
+  if(!sheets.length)return toast('Không có dữ liệu lớp để xuất.',true);
+  const ns='http://schemas.openxmlformats.org',xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  zip.file('[Content_Types].xml',`${xml}<Types xmlns="${ns}/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_,idx)=>`<Override PartName="/xl/worksheets/sheet${idx+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`);
+  zip.file('_rels/.rels',`${xml}<Relationships xmlns="${ns}/package/2006/relationships"><Relationship Id="rId1" Type="${ns}/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  zip.file('xl/workbook.xml',`${xml}<workbook xmlns="${ns}/spreadsheetml/2006/main" xmlns:r="${ns}/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>${sheets.map((s,idx)=>`<sheet name="${escapeHTML(s.name)}" sheetId="${idx+1}" r:id="rId${idx+1}"/>`).join('')}</sheets></workbook>`);
+  zip.file('xl/_rels/workbook.xml.rels',`${xml}<Relationships xmlns="${ns}/package/2006/relationships">${sheets.map((_,idx)=>`<Relationship Id="rId${idx+1}" Type="${ns}/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${idx+1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length+1}" Type="${ns}/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+  zip.file('xl/styles.xml',allFeesExcelStyles());
+  sheets.forEach((s,idx)=>zip.file(`xl/worksheets/sheet${idx+1}.xml`,s.xml));
+  const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  download(`Theo-doi-tat-ca-khoan-thu-THCS-So-2-Hieu-Giang-${new Date().toISOString().slice(0,10)}.xlsx`,blob,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  const missingDob=students.filter(s=>!allFeesStudentBirthDate(s)).length;
+  toast(`Đã xuất ${sheets.length} sheet lớp, mỗi học sinh một dòng.${missingDob?` ${missingDob} học sinh chưa có ngày sinh.`:''}`);
+}
 async function exportClassFeeReport(){
   if(typeof JSZip==='undefined')return toast('Thiếu thư viện xuất Excel. Hãy tải lại trang.',true);
   const filter=$('#classFeeFilter')?.value||'all';
-  if(filter==='all')return toast('Hãy chọn một món thu cụ thể trước khi xuất báo cáo.',true);
+  if(filter==='all')return exportAllClassFees();
   const [students,stored,catalog]=await Promise.all([all('students'),all('transactions'),getFeeCatalog()]);
   const transactions=reconcileTransactions(students,stored);
   const exactFee=filter.startsWith('catalog:')?catalog.find(f=>f.id===filter.slice(8)):null;
