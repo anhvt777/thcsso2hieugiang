@@ -7,30 +7,29 @@
   <meta name="description" content="Quản lý và đối soát từng khoản thu học sinh. Dữ liệu được lưu cục bộ trên thiết bị đang sử dụng.">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; worker-src 'self'; manifest-src 'self'; form-action 'self'">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20261008l">
+  <link rel="stylesheet" href="styles.css?v=20261009a">
   <title>Trường THCS Số 2 Hiếu Giang · Quản lý thu học sinh</title>
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
-      <div class="brand">
+      <div class="brand school-brand">
         <div class="brand-mark" aria-hidden="true">▧</div>
-        <div><strong>SchoolCollect</strong><small>Quản lý thu học sinh</small></div>
+        <div class="brand-copy"><strong>TRƯỜNG THCS SỐ 2 HIẾU GIANG</strong><small>Quản lý thu học sinh</small></div>
       </div>
       <div class="local-pill"><span class="shield-icon" aria-hidden="true">✓</span><div><strong>Lưu trên máy</strong><small>Không gửi dữ liệu học sinh lên máy chủ</small></div></div>
       <nav class="nav" aria-label="Điều hướng chính">
         <button class="nav-item active" data-page="dashboard"><span class="nav-icon">▦</span>Tổng quan</button>
         <button class="nav-item" data-page="students"><span class="nav-icon">♧</span>Học sinh</button>
-        <button class="nav-item" data-page="fees"><span class="nav-icon">▤</span>Khoản thu</button>
         <button class="nav-item" data-page="fee-setup"><span class="nav-icon">＋</span>Thiết lập khoản thu</button>
+        <button class="nav-item" data-page="fees"><span class="nav-icon">▤</span>Khoản thu</button>
         <button class="nav-item" data-page="bidv-export"><span class="nav-icon">⇩</span>Bảng kê BIDV</button>
-        <button class="nav-item" data-page="receipts"><span class="nav-icon">▣</span>Phiếu thu / Xác nhận</button>
         <a class="nav-item qr-external-link" href="https://anhvt777.github.io/bidvqrgen/" target="_blank" rel="noopener noreferrer" aria-label="Mở công cụ tạo QR và thông báo nộp tiền trong tab mới"><span class="nav-icon">▦</span>Tạo QR & thông báo <span class="external-link-mark" aria-hidden="true">↗</span></a>
         <button class="nav-item" data-page="imports"><span class="nav-icon">⇧</span>Nhập dữ liệu</button>
+        <button class="nav-item" data-page="receipts"><span class="nav-icon">▣</span>Phiếu thu / Xác nhận</button>
         <button class="nav-item" data-page="history"><span class="nav-icon">▣</span>Tra cứu & báo cáo</button>
       </nav>
       <div class="sidebar-bottom">
-        <div class="school-chip"><span class="school-symbol">⌂</span><div><strong>TRƯỜNG THCS SỐ 2 HIẾU GIANG</strong><small>Năm học 2026–2027</small></div></div>
         <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span>Sao lưu & cài đặt</button>
       </div>
     </aside>
@@ -371,7 +370,7 @@
   <div class="receipt-print-root" id="receiptPrintRoot" aria-hidden="true"></div>
   <script src="vendor/qrcode.min.js"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=20261008l"></script>
+  <script src="app.js?v=20261009a"></script>
   <script src="insurance.js"></script>
 </body>
 </html>
