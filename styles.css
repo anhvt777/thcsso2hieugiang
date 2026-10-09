@@ -126,3 +126,10 @@
 .cash-file-card{padding:19px;margin-top:16px;margin-bottom:10px}
 @media(max-width:1100px){.cash-session-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.cash-session-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.cash-session-toolbar{grid-template-columns:1fr}.cash-session-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.cash-session-check{grid-template-columns:1fr}}
+
+.school-brand{height:auto;min-height:82px;padding:4px 8px 14px;align-items:flex-start}
+.school-brand .brand-mark{margin-top:2px;flex:none}
+.school-brand .brand-copy{min-width:0}
+.school-brand .brand-copy strong{font-size:13px;line-height:1.35;letter-spacing:.2px;text-transform:uppercase}
+.school-brand .brand-copy small{font-size:11px;line-height:1.35;margin-top:5px}
+.sidebar-bottom{margin-top:auto;padding-top:10px;border-top:1px solid #ffffff1d}
