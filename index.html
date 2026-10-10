@@ -7,7 +7,7 @@
   <meta name="description" content="Quản lý và đối soát từng khoản thu học sinh. Dữ liệu được lưu cục bộ trên thiết bị đang sử dụng.">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; worker-src 'self'; manifest-src 'self'; form-action 'self'">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20261010b">
+  <link rel="stylesheet" href="styles.css?v=20261010c">
   <title>Trường THCS Số 2 Hiếu Giang · Quản lý thu học sinh</title>
 </head>
 <body>
@@ -121,11 +121,11 @@
             <label class="qr-field"><span>Phạm vi</span><select id="bidvExportScope"><option value="all">Toàn bộ học sinh được phân giao</option><option value="grade">Theo khối</option><option value="class">Theo lớp</option></select></label>
             <label class="qr-field"><span>Đối tượng</span><select id="bidvExportTarget"><option value="all">Tất cả</option></select></label>
             <label class="qr-field"><span>Kỳ hóa đơn</span><input id="bidvBillPeriod" maxlength="20" value="2026" placeholder="Ví dụ: 2026"></label>
-            <label class="qr-field"><span>Tiền tố</span><input id="bidvCustomerPrefix" maxlength="8" value="HG2" placeholder="HG2"></label>
-            <label class="qr-field"><span>Cấu trúc Mã khách hàng</span><input id="bidvCustomerTemplate" maxlength="80" value="{PREFIX}{YY}{CLASS}{SEQ}{FEE}" placeholder="{PREFIX}{YY}{CLASS}{SEQ}{FEE}"></label>
+            <label class="qr-field"><span>Tiền tố bổ sung (không bắt buộc)</span><input id="bidvCustomerPrefix" maxlength="8" value="" placeholder="Để trống nếu không cần"></label>
+            <label class="qr-field"><span>Cấu trúc Mã khách hàng</span><input id="bidvCustomerTemplate" maxlength="80" value="{YY}{CLASS}{SEQ}{FEE}" placeholder="{YY}{CLASS}{SEQ}{FEE}"></label>
           </div>
-          <div class="mapping-note"><span class="note-icon">i</span><div><strong>Các biến có thể dùng:</strong><p><code>{PREFIX}</code> tiền tố · <code>{YY}</code>/<code>{YYYY}</code> năm · <code>{CLASS}</code> lớp · <code>{SEQ}</code> số thứ tự 01–99 · <code>{HS}</code> mã HS theo lớp · <code>{BASE}</code> mã HS gốc · <code>{CD}</code> Mã số CĐ · <code>{FEE}</code> mã khoản. File BIDV dùng tài khoản định danh nên mã xuất ra chỉ gồm chữ không dấu và số.</p></div></div>
-          <div class="fee-code-preview"><span>Xem trước Mã khách hàng</span><strong id="bidvCustomerPreview">HG2267C201BHTT</strong><small id="bidvCustomerPreviewText">Khuyến nghị: HG2 + năm 2 số + lớp + STT 2 số + mã khoản.</small></div>
+          <div class="mapping-note"><span class="note-icon">i</span><div><strong>Các biến có thể dùng:</strong><p><code>{PREFIX}</code> tiền tố tùy chọn · <code>{YY}</code>/<code>{YYYY}</code> năm · <code>{CLASS}</code> lớp · <code>{SEQ}</code> số thứ tự 01–99 · <code>{HS}</code> mã HS theo lớp · <code>{BASE}</code> mã HS gốc · <code>{CD}</code> Mã số CĐ · <code>{FEE}</code> ký hiệu khoản 2 ký tự. File BIDV dùng tài khoản định danh nên mã xuất ra chỉ gồm chữ không dấu và số.</p></div></div>
+          <div class="fee-code-preview"><span>Xem trước Mã khách hàng</span><strong id="bidvCustomerPreview">267C201TT</strong><small id="bidvCustomerPreviewText">Khuyến nghị: năm 2 số + lớp + STT 2 số + ký hiệu khoản 2 ký tự. Không cần HG2.</small></div>
           <label class="check-row"><input type="checkbox" id="bidvOnlyUnpaid" checked><span>Chỉ xuất các khoản chưa thu</span></label>
           <div class="fee-builder-actions"><button class="button button-outline" id="bidvValidateExport">Kiểm tra mã</button><button class="button button-primary" id="bidvExportXlsx">↓ Xuất XLSX BIDV</button></div>
           <div class="last-import" id="bidvExportStatus">Chưa kiểm tra dữ liệu xuất.</div>
@@ -370,7 +370,7 @@
   <div class="receipt-print-root" id="receiptPrintRoot" aria-hidden="true"></div>
   <script src="vendor/qrcode.min.js"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=20261010b"></script>
+  <script src="app.js?v=20261010c"></script>
   <script src="insurance.js"></script>
 </body>
 </html>
