@@ -499,7 +499,7 @@ async function confirmImport() {
     await putMany('students', items);
     const currentStudents=await all('students');
     const codes = new Map(currentStudents.map(s => [slug(s.code), s]));
-    const paymentOwners=new Map();currentStudents.forEach(s=>studentDueItems(s).forEach(item=>{if(item.paymentCode)paymentOwners.set(slug(item.paymentCode),s);}));
+    const paymentOwners=new Map();currentStudents.forEach(s=>studentDueItems(s).forEach(item=>{if(item.paymentCode)paymentOwners.set(slug(item.paymentCode),s);for(const alias of item.paymentCodeAliases||[])if(alias)paymentOwners.set(slug(alias),s);}));
     const knownTransactions = await all('transactions');
     const rematched = knownTransactions.map(t => {
       const reported=t.reportedPaymentCode||t.reportedStudentCode||'';
@@ -513,7 +513,7 @@ async function confirmImport() {
     $('#studentLastImport').textContent = `Gần nhất: ${file.name} · ${items.length.toLocaleString('vi-VN')} học sinh`;
   } else {
     const students = await all('students'); const byCode = new Map(students.map(s => [slug(s.code), s]));
-    const byPaymentCode=new Map();students.forEach(s=>studentDueItems(s).forEach(item=>{if(item.paymentCode)byPaymentCode.set(slug(item.paymentCode),s);if(item.qrAccountNumber)byPaymentCode.set(slug(item.qrAccountNumber),s);}));
+    const byPaymentCode=new Map();students.forEach(s=>studentDueItems(s).forEach(item=>{if(item.paymentCode)byPaymentCode.set(slug(item.paymentCode),s);for(const alias of item.paymentCodeAliases||[])if(alias)byPaymentCode.set(slug(alias),s);if(item.qrAccountNumber)byPaymentCode.set(slug(item.qrAccountNumber),s);}));
     const items = dataRows.map((row, i) => {
       const amount = parseAmount(cell(row, map, 'amount')); if (!amount) return null;
       const reportedMoet=cell(row,map,'reportMoet')||cell(row,map,'studentCode');
@@ -695,7 +695,7 @@ function studentFromBankIdentity(t,indexes){
 }
 function reconcileTransactions(students, transactions) {
   const byCode=new Map(students.map(s=>[slug(s.code),s]));const byPaymentCode=new Map();
-  students.forEach(student=>studentDueItems(student).forEach(item=>{if(item.paymentCode)byPaymentCode.set(slug(item.paymentCode),{student,item});if(item.qrAccountNumber)byPaymentCode.set(slug(item.qrAccountNumber),{student,item});}));
+  students.forEach(student=>studentDueItems(student).forEach(item=>{if(item.paymentCode)byPaymentCode.set(slug(item.paymentCode),{student,item});for(const alias of item.paymentCodeAliases||[])if(alias)byPaymentCode.set(slug(alias),{student,item});if(item.qrAccountNumber)byPaymentCode.set(slug(item.qrAccountNumber),{student,item});}));
   const reportIndexes=buildStudentReportIndexes(students);
   const claimed=new Set();
   return [...transactions].sort((a,b)=>(a.date||a.importedAt||'').localeCompare(b.date||b.importedAt||'')).map(t=>{
@@ -1026,7 +1026,7 @@ function bidvCustomerCodeFromTemplate(template,student,feeCode,prefix,period){
     CLASS:classToken,SEQ:seq,HS:feeSafeCode(student.classStudentCode||student.code,16),
     BASE:feeSafeCode(student.code,16),CD:feeSafeCode(student.externalCode,20),FEE:feeSafeCode(feeCode,10)
   };
-  let out=String(template||'{PREFIX}{YY}{CLASS}{SEQ}{FEE}').replace(/\{(PREFIX|YY|YYYY|CLASS|SEQ|HS|BASE|CD|FEE)\}/g,(_,k)=>vars[k]||'');
+  let out=String(template||'{YY}{CLASS}{SEQ}{FEE}').replace(/\{(PREFIX|YY|YYYY|CLASS|SEQ|HS|BASE|CD|FEE)\}/g,(_,k)=>vars[k]||'');
   out=feeSafeCode(out,40);
   return out;
 }
@@ -1069,7 +1069,7 @@ function populateBidvExportControls(students,catalog){
 function updateBidvCustomerPreview(students,catalog){
   const sample=bidvExportScopeStudents(students)[0]||students[0];
   const options=bidvFeeOptions(students,catalog),fee=options.find(f=>f.optionId===$('#bidvExportFee')?.value)||options[0];
-  const prefix=$('#bidvCustomerPrefix')?.value||'HG2',period=$('#bidvBillPeriod')?.value||String(new Date().getFullYear()),template=$('#bidvCustomerTemplate')?.value||'{PREFIX}{YY}{CLASS}{SEQ}{FEE}';
+  const prefix=$('#bidvCustomerPrefix')?.value||'',period=$('#bidvBillPeriod')?.value||String(new Date().getFullYear()),template=$('#bidvCustomerTemplate')?.value||'{YY}{CLASS}{SEQ}{FEE}';
   const feeToken=fee?.shortCode||defaultFeeShortCode(fee?.category,fee?.code);
   const code=sample&&fee?bidvCustomerCodeFromTemplate(template,sample,feeToken,prefix,period):'—';
   if($('#bidvCustomerPreview'))$('#bidvCustomerPreview').textContent=code;
@@ -1115,7 +1115,14 @@ async function bidvExportRows(validateOnly=false){
   if(changes.size){
     const updated=students.map(s=>{
       if(!changes.has(s.code))return s;
-      const dueItems=studentDueItems(s).map(item=>(fee.source==='catalog'?item.catalogId===fee.id:(!item.catalogId&&item.category===fee.category))?{...item,paymentCode:changes.get(s.code),feeCode:item.feeCode||fee.code,shortCode:item.shortCode||fee.shortCode||defaultFeeShortCode(fee.category,fee.code)}:item);
+      const dueItems=studentDueItems(s).map(item=>{
+        const target=fee.source==='catalog'?item.catalogId===fee.id:(!item.catalogId&&item.category===fee.category);
+        if(!target)return item;
+        const nextCode=changes.get(s.code),aliases=new Set(item.paymentCodeAliases||[]);
+        if(item.paymentCode&&slug(item.paymentCode)!==slug(nextCode))aliases.add(item.paymentCode);
+        for(const alias of [...aliases])if(slug(alias)===slug(nextCode))aliases.delete(alias);
+        return {...item,paymentCode:nextCode,paymentCodeAliases:[...aliases],feeCode:item.feeCode||fee.code,shortCode:item.shortCode||fee.shortCode||defaultFeeShortCode(fee.category,fee.code)};
+      });
       return {...s,dueItems,updatedAt:new Date().toISOString()};
     });
     await putMany('students',updated);
@@ -1156,8 +1163,8 @@ function qrFeeRemarkName(name){
     .trim();
 }
 function qrCustomerCode(student,feeShort,period){
-  const bidvPrefix=$('#bidvCustomerPrefix')?.value||'HG2';
-  const template=$('#bidvCustomerTemplate')?.value||'{PREFIX}{YY}{CLASS}{SEQ}{FEE}';
+  const bidvPrefix=$('#bidvCustomerPrefix')?.value||'';
+  const template=$('#bidvCustomerTemplate')?.value||'{YY}{CLASS}{SEQ}{FEE}';
   return bidvCustomerCodeFromTemplate(template,student,feeShort,bidvPrefix,period);
 }
 function qrFileDate(value){
