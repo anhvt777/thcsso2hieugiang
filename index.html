@@ -7,7 +7,7 @@
   <meta name="description" content="Quản lý và đối soát từng khoản thu học sinh. Dữ liệu được lưu cục bộ trên thiết bị đang sử dụng.">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; worker-src 'self'; manifest-src 'self'; form-action 'self'">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20261009a">
+  <link rel="stylesheet" href="styles.css?v=20261010a">
   <title>Trường THCS Số 2 Hiếu Giang · Quản lý thu học sinh</title>
 </head>
 <body>
@@ -138,10 +138,10 @@
             <label class="qr-field"><span>Đối tượng</span><select id="qrFileTarget"><option value="all">Tất cả</option></select></label>
             <label class="qr-field"><span>Món thu</span><select id="qrFileFee"><option value="all">Tất cả món thu</option></select></label>
             <label class="qr-field"><span>Mã đầu định danh</span><input id="qrFilePrefix" maxlength="30" value="V6" placeholder="Ví dụ: V6"></label>
-            <label class="qr-field"><span>Mã học sinh dùng trong AccountNumber</span><select id="qrFileStudentCodeMode"><option value="base">Mã HS gốc ổn định (khuyến nghị)</option><option value="class">Mã HS theo lớp</option></select></label>
             <label class="qr-field"><span>Kỳ thu</span><input id="qrFilePeriod" maxlength="30" value="2026" placeholder="Ví dụ: 2026 hoặc HK1 2026"></label>
+            <label class="qr-field"><span>Cấu trúc mã QR</span><input value="Mã đầu định danh + Mã khách hàng BIDV" readonly></label>
           </div>
-          <div class="mapping-note"><span class="note-icon">i</span><div><strong>Cấu trúc file QR:</strong><p><code>AccountNumber</code> = Mã đầu định danh + Mã học sinh + ký hiệu khoản 2 ký tự. <code>AccountName</code> = Họ tên học sinh + lớp. <code>Remark</code> = AccountName + NOP + Tên khoản thu + kỳ thu. AccountNumber, AccountName và Remark được tự bỏ dấu/ký tự đặc biệt để tránh lỗi khi tạo QR.</p></div></div>
+          <div class="mapping-note"><span class="note-icon">i</span><div><strong>Cấu trúc file QR:</strong><p><code>AccountNumber</code> = Mã đầu định danh + đúng Mã khách hàng BIDV của cùng học sinh/món thu (cùng tiền tố, năm 2 số, lớp, STT và ký hiệu khoản). <code>AccountName</code> = Họ tên học sinh + lớp. <code>Remark</code> = AccountName + NOP + Tên khoản thu + kỳ thu; tự loại mã BHYT/BHTT/TT/YT bị lặp.</p></div></div>
           <div class="fee-code-preview"><span>Xem trước</span><strong id="qrFileAccountPreview">—</strong><small id="qrFileRemarkPreview">Chọn dữ liệu để xem AccountNumber và Remark mẫu.</small></div>
           <label class="check-row"><input type="checkbox" id="qrFileOnlyUnpaid" checked><span>Chỉ xuất các món chưa thu</span></label>
           <div class="fee-builder-actions"><button class="button button-outline" id="qrFileValidate">Kiểm tra file QR</button><button class="button button-primary" id="qrFileExport">↓ Xuất XLSX tạo QR</button></div>
@@ -370,7 +370,7 @@
   <div class="receipt-print-root" id="receiptPrintRoot" aria-hidden="true"></div>
   <script src="vendor/qrcode.min.js"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=20261009a"></script>
+  <script src="app.js?v=20261010a"></script>
   <script src="insurance.js"></script>
 </body>
 </html>
