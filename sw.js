@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'so-thu-hoc-sinh-hieugiang-so2-shell-';
-const CACHE_NAME = CACHE_PREFIX + 'v23-sidebar-school-brand';
+const CACHE_NAME = CACHE_PREFIX + 'v24-qr-code-consistency';
 const SHELL = ['./', './index.html', './styles.css', './app.js', './insurance.js', './manifest.json', './icon.svg', './vendor/qrcode.min.js', './vendor/jszip.min.js'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)));
